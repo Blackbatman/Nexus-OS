@@ -11,8 +11,10 @@ Plasma theme · packaging scripts + guides · docs suite · test harness green.
 
 ## Phase 1 — GreenApple v2 real-boot wiring (code)
 
-- F17: apply `nexus-hub/greapple-v2/` patches to `third_party/PS5GreenApple`;
-  `make host shots` baselines; `nexus_write_select` unit tests.
+- F17: DONE (see `docs/11-greapple-v2-impl.md`) — patches implemented,
+  unit-tested (37 checks), shot pipeline verified, harness-checked. Remaining
+  polish: apply upstream as PS5GreenApple v2.1 (user push), BackstopJS
+  baselines for the four new PNGs.
 - `nexus-bootd` systemd unit + selector polish on the Linux stage ISO.
 
 ## Phase 2 — Chain L to "boots for real"

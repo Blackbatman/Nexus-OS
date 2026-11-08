@@ -1,180 +1,180 @@
 {
-  "project": "NEXUS-OS",
-  "updated": "2026-11-09",
-  "goal": "Multi-OS bare-metal boot on a jailbroken PS5 (supported entry range FW 7.00-13.60; macOS chain proven on 13.42, scene ceiling 13.60) with a real-boot NEXUS hub, plus permission-gated nested OS guests on host machines. FW 14.x is a tracked RESEARCH watch (F20).",
-  "rules": [
-    "One feature per session; verify before marking passes=true.",
-    "Anything unproven on real hardware stays labeled RESEARCH.",
-    "Publishing / spending / real-hardware runs are approval-gated."
-  ],
-  "features": [
-    {
-      "id": "F01",
-      "name": "MADT fake generator (bootchain/acpi/madt_fake.py)",
-      "description": "Generate valid ACPI MADT (APIC) tables with configurable processor counts for OpenCore hand-off; self-test verifies checksum and re-parse.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: madt_fake.py --selftest PASS",
-      "owner": "kernel-builder"
-    },
-    {
-      "id": "F02",
-      "name": "Linux chainload script (bootchain/kexec/chainload-linux.sh)",
-      "description": "kexec -l bzImage+initrd with per-distro command lines for 8 flavors; dry-run mode validates arguments without booting.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
-      "owner": "kernel-builder"
-    },
-    {
-      "id": "F03",
-      "name": "macOS crash-kexec chain script (bootchain/kexec/chainload-macos.sh)",
-      "description": "kexec_file_load -p stage1 (crash kernel) then sysrq-c, mirroring rodri0x/ps5-hackintosh; guarded RESEARCH banner + artifact existence checks.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
-      "owner": "kernel-builder"
-    },
-    {
-      "id": "F04",
-      "name": "Windows chain script (bootchain/kexec/chainload-windows.sh)",
-      "description": "UefiPayload → bootmgfw.efi research chain with USB-storage and no-GPU-accel warnings.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
-      "owner": "kernel-builder"
-    },
-    {
-      "id": "F05",
-      "name": "NEXUS boot selector (bootchain/kexec/nexus-boot-select.sh)",
-      "description": "Reads /data/NEXUS/boot-select.json written by the hub, dispatches to the right chain script, logs every decision.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
-      "owner": "kernel-builder"
-    },
-    {
-      "id": "F06",
-      "name": "Permission-gate daemon (nested-os/permission-gate/gate-daemon.py)",
-      "description": "Local HTTP policy proxy: guests request file operations; default deny; per-guest allowed paths; approval workflow; self-test covers allow/deny/approval paths.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: gate-daemon.py --selftest PASS",
-      "owner": "integration-builder"
-    },
-    {
-      "id": "F07",
-      "name": "terminal-mac guest runner (nested-os/terminal-mac/run-mac-guest.sh)",
-      "description": "Clone/build govijr/terminal-mac on Apple silicon, launch isolated workspace, register guest with gate daemon.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --check-env PASS (full run requires Apple silicon host)",
-      "owner": "integration-builder"
-    },
-    {
-      "id": "F08",
-      "name": "Windows-in-terminal guest runner (nested-os/windows-terminal/run-windows-guest.sh)",
-      "description": "KVM/QEMU guest with swtpm, user-supplied licensed ISO, gate-mediated sharing only.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --check-env PASS (full run requires KVM host + ISO)",
-      "owner": "integration-builder"
-    },
-    {
-      "id": "F09",
-      "name": "NEXUS Hub web demo (nexus-hub/web-demo/index.html)",
-      "description": "Single-file Mass Effect × CyberPunk glass UI: top panel, centered dock, global menu, honest OS grid, boot-chain modal simulation, permission gate, telemetry, DIC voice console.",
-      "passes": true,
-      "evidence": "UI-builder agent: HTMLParser OK, node --check OK, 53.6KB",
-      "owner": "ui-builder"
-    },
-    {
-      "id": "F10",
-      "name": "Plasma NEXUS Metro theme (nexus-hub/plasma/)",
-      "description": "KDE Plasma 6/5 setup script: top panel + global menu, centered icons-only dock, animations disabled, blur glass, NEXUSMetro.colors.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + colorscheme sanity PASS",
-      "owner": "ui-builder"
-    },
-    {
-      "id": "F11",
-      "name": "PS5GreenApple v2 real-boot patch spec (nexus-hub/greapple-v2/)",
-      "description": "Precise patch plan: NEXUS writes boot-select.json, nexus-bootd in Linux stage consumes it, Boot Camp reads real volumes via lsblk.",
-      "passes": true,
-      "evidence": "docs + spec reviewed by architect; code patches pending real repo checkout (F17)",
-      "owner": "ui-builder"
-    },
-    {
-      "id": "F12",
-      "name": "REA session adapter (tools/rea-adapter/rea-session.sh)",
-      "description": "Wraps REA CLI/MCP to analyze locally built payloads and produce session analysis reports.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n + --help flow PASS",
-      "owner": "reverse-engineer"
-    },
-    {
-      "id": "F13",
-      "name": "radare2 analyzers (tools/radare2/)",
-      "description": "analyze-payload.sh (sections/strings/imports) and symbol-diff.sh (radiff2 -A between stage builds).",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: bash -n PASS; full run requires r2 installed",
-      "owner": "reverse-engineer"
-    },
-    {
-      "id": "F14",
-      "name": "BackstopJS visual regression config (tools/backstop/)",
-      "description": "backstop.json scenarios for the hub demo + sandbox-safe fallback checker (agent-browser screenshot + PIL diff).",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: JSON valid + fallback script syntax PASS",
-      "owner": "beta-qa"
-    },
-    {
-      "id": "F15",
-      "name": "Voice module DIC (tools/voice/)",
-      "description": "whisper.cpp-based offline voice command mapping with --selftest intent parser; DualSense mic note.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: voice_cmd.py --selftest PASS",
-      "owner": "integration-builder"
-    },
-    {
-      "id": "F16",
-      "name": "Packaging suite (packaging/)",
-      "description": "ps5-payload-sdk ELF build (nexus_boot payload), Arch ISO profile, Windows media script, USB/FTP/disc guides.",
-      "passes": true,
-      "evidence": "beta-team run-tests.sh: syntax + XML + JSON PASS; ISO build requires archiso host",
-      "owner": "integration-builder"
-    },
-    {
-      "id": "F17",
-      "name": "GreenApple v2 real code patches (C, backend_sdl2.c)",
-      "description": "Actual source patches to PS5GreenApple replacing fake NEXUS re-theming with boot-select.json writes and Boot Camp lsblk volume detection.",
-      "passes": false,
-      "evidence": "requires agents/init.sh to clone third_party/PS5GreenApple first (approval-gated network fetch)",
-      "owner": "ui-builder"
-    },
-    {
-      "id": "F18",
-      "name": "Real-hardware validation matrix",
-      "description": "Run chains M/L/W on a launch-model PS5 (13.42 baseline; optional 13.60 console for the raised ceiling); capture ktty logs; file hardware support deltas.",
-      "passes": false,
-      "evidence": "APPROVAL GATE: needs operator PS5 + jailbreak entry (Relapse/Byepervisor on 13.x); see docs/06-testing-plan.md and docs/09-firmware-coverage.md",
-      "owner": "beta-qa"
-    },
-    {
-      "id": "F19",
-      "name": "Firmware coverage registry + 13.60 support documentation",
-      "description": "docs/09-firmware-coverage.md: verified matrix of FW 6.xx-14.10 (Relapse-Exploit 7.00-13.60 entry, Byepervisor-Reborn HV on 13.20/13.60, 14.x research watch), with all seven new research repos audited and the support ceiling raised 13.42 -> 13.60 across README, boot-chain docs, install guides and init.sh.",
-      "passes": true,
-      "evidence": "all 7 repos WebFetch-verified 2026-11-09; docs/09 registry written; beta-team run-tests.sh full pass after integration",
-      "owner": "architect"
-    },
-    {
-      "id": "F20",
-      "name": "FW 14.x exploit research watch",
-      "description": "Track ZigZagBoi1/PS5-14.10-Research (+ status report), pastawithpesto CVE-2026-43720 WebKit research, and kuzibelit AIO PoC until a public 14.x kernel chain exists; then extend entry docs to 14.x. Includes Byepervisor HV research threads (clean FW return, HV isolation) for 13.x.",
-      "passes": false,
-      "evidence": "RESEARCH WATCH: 14.00 patched the Relapse kernel bug, 14.10 additionally patched the S3-resume HV bug; no public kernel R/W on 14.x as of 2026-11-09. Re-verify upstream repos at each review; per docs/09-firmware-coverage.md section 5",
-      "owner": "reverse-engineer"
-    },
-    {
-      "id": "F21",
-      "name": "Explicit state-machine layer (registry + validator + spec)",
-      "description": "Eleven implicit state machines audited across NEXUS-OS and PS5GreenApple (boot intent contract, hub lifecycle, boot animation, persona router, Boot Camp rows, gate requests, voice intents, chain guards, demo modal, feature harness, workspace init) and made explicit: agents/state-machines.json (machine-readable, 70 transitions with guards and sources), docs/10-state-machines.md (human spec + findings F-A/B/C/E), tools/statecheck/statecheck.py (schema, determinism, reachability, terminal and source checks) wired into the harness.",
-      "passes": true,
-      "evidence": "statecheck --selftest PASS (4 scenarios); REGISTRY PASS: 11 machines, 70 transitions, 0 violations; beta-team run-tests.sh full pass 47/47 after integration",
-      "owner": "architect"
-    }
-  ]
+ "project": "NEXUS-OS",
+ "updated": "2026-11-09",
+ "goal": "Multi-OS bare-metal boot on a jailbroken PS5 (supported entry range FW 7.00-13.60; macOS chain proven on 13.42, scene ceiling 13.60) with a real-boot NEXUS hub, plus permission-gated nested OS guests on host machines. FW 14.x is a tracked RESEARCH watch (F20).",
+ "rules": [
+  "One feature per session; verify before marking passes=true.",
+  "Anything unproven on real hardware stays labeled RESEARCH.",
+  "Publishing / spending / real-hardware runs are approval-gated."
+ ],
+ "features": [
+  {
+   "id": "F01",
+   "name": "MADT fake generator (bootchain/acpi/madt_fake.py)",
+   "description": "Generate valid ACPI MADT (APIC) tables with configurable processor counts for OpenCore hand-off; self-test verifies checksum and re-parse.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: madt_fake.py --selftest PASS",
+   "owner": "kernel-builder"
+  },
+  {
+   "id": "F02",
+   "name": "Linux chainload script (bootchain/kexec/chainload-linux.sh)",
+   "description": "kexec -l bzImage+initrd with per-distro command lines for 8 flavors; dry-run mode validates arguments without booting.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
+   "owner": "kernel-builder"
+  },
+  {
+   "id": "F03",
+   "name": "macOS crash-kexec chain script (bootchain/kexec/chainload-macos.sh)",
+   "description": "kexec_file_load -p stage1 (crash kernel) then sysrq-c, mirroring rodri0x/ps5-hackintosh; guarded RESEARCH banner + artifact existence checks.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
+   "owner": "kernel-builder"
+  },
+  {
+   "id": "F04",
+   "name": "Windows chain script (bootchain/kexec/chainload-windows.sh)",
+   "description": "UefiPayload \u2192 bootmgfw.efi research chain with USB-storage and no-GPU-accel warnings.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
+   "owner": "kernel-builder"
+  },
+  {
+   "id": "F05",
+   "name": "NEXUS boot selector (bootchain/kexec/nexus-boot-select.sh)",
+   "description": "Reads /data/NEXUS/boot-select.json written by the hub, dispatches to the right chain script, logs every decision.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --dry-run PASS",
+   "owner": "kernel-builder"
+  },
+  {
+   "id": "F06",
+   "name": "Permission-gate daemon (nested-os/permission-gate/gate-daemon.py)",
+   "description": "Local HTTP policy proxy: guests request file operations; default deny; per-guest allowed paths; approval workflow; self-test covers allow/deny/approval paths.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: gate-daemon.py --selftest PASS",
+   "owner": "integration-builder"
+  },
+  {
+   "id": "F07",
+   "name": "terminal-mac guest runner (nested-os/terminal-mac/run-mac-guest.sh)",
+   "description": "Clone/build govijr/terminal-mac on Apple silicon, launch isolated workspace, register guest with gate daemon.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --check-env PASS (full run requires Apple silicon host)",
+   "owner": "integration-builder"
+  },
+  {
+   "id": "F08",
+   "name": "Windows-in-terminal guest runner (nested-os/windows-terminal/run-windows-guest.sh)",
+   "description": "KVM/QEMU guest with swtpm, user-supplied licensed ISO, gate-mediated sharing only.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --check-env PASS (full run requires KVM host + ISO)",
+   "owner": "integration-builder"
+  },
+  {
+   "id": "F09",
+   "name": "NEXUS Hub web demo (nexus-hub/web-demo/index.html)",
+   "description": "Single-file Mass Effect \u00d7 CyberPunk glass UI: top panel, centered dock, global menu, honest OS grid, boot-chain modal simulation, permission gate, telemetry, DIC voice console.",
+   "passes": true,
+   "evidence": "UI-builder agent: HTMLParser OK, node --check OK, 53.6KB",
+   "owner": "ui-builder"
+  },
+  {
+   "id": "F10",
+   "name": "Plasma NEXUS Metro theme (nexus-hub/plasma/)",
+   "description": "KDE Plasma 6/5 setup script: top panel + global menu, centered icons-only dock, animations disabled, blur glass, NEXUSMetro.colors.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + colorscheme sanity PASS",
+   "owner": "ui-builder"
+  },
+  {
+   "id": "F11",
+   "name": "PS5GreenApple v2 real-boot patch spec (nexus-hub/greapple-v2/)",
+   "description": "Precise patch plan: NEXUS writes boot-select.json, nexus-bootd in Linux stage consumes it, Boot Camp reads real volumes via lsblk.",
+   "passes": true,
+   "evidence": "docs + spec reviewed by architect; code patches pending real repo checkout (F17)",
+   "owner": "ui-builder"
+  },
+  {
+   "id": "F12",
+   "name": "REA session adapter (tools/rea-adapter/rea-session.sh)",
+   "description": "Wraps REA CLI/MCP to analyze locally built payloads and produce session analysis reports.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n + --help flow PASS",
+   "owner": "reverse-engineer"
+  },
+  {
+   "id": "F13",
+   "name": "radare2 analyzers (tools/radare2/)",
+   "description": "analyze-payload.sh (sections/strings/imports) and symbol-diff.sh (radiff2 -A between stage builds).",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: bash -n PASS; full run requires r2 installed",
+   "owner": "reverse-engineer"
+  },
+  {
+   "id": "F14",
+   "name": "BackstopJS visual regression config (tools/backstop/)",
+   "description": "backstop.json scenarios for the hub demo + sandbox-safe fallback checker (agent-browser screenshot + PIL diff).",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: JSON valid + fallback script syntax PASS",
+   "owner": "beta-qa"
+  },
+  {
+   "id": "F15",
+   "name": "Voice module DIC (tools/voice/)",
+   "description": "whisper.cpp-based offline voice command mapping with --selftest intent parser; DualSense mic note.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: voice_cmd.py --selftest PASS",
+   "owner": "integration-builder"
+  },
+  {
+   "id": "F16",
+   "name": "Packaging suite (packaging/)",
+   "description": "ps5-payload-sdk ELF build (nexus_boot payload), Arch ISO profile, Windows media script, USB/FTP/disc guides.",
+   "passes": true,
+   "evidence": "beta-team run-tests.sh: syntax + XML + JSON PASS; ISO build requires archiso host",
+   "owner": "integration-builder"
+  },
+  {
+   "id": "F17",
+   "name": "GreenApple v2 real code patches (C, backend_sdl2.c)",
+   "description": "Actual source patches to PS5GreenApple replacing fake NEXUS re-theming with boot-select.json writes and Boot Camp lsblk volume detection.",
+   "passes": true,
+   "evidence": "patch applies cleanly to upstream 10b98b3; make host + nexus-unit 37/37; make shots renders nexus-stage-ok/simulated/fail + bootcamp-volumes (visually verified); hub-written boot-select.json accepted by nexus-boot-select.sh (dry-run); beta-team full suite 55/55 with the new F17 checks",
+   "owner": "ui-builder"
+  },
+  {
+   "id": "F18",
+   "name": "Real-hardware validation matrix",
+   "description": "Run chains M/L/W on a launch-model PS5 (13.42 baseline; optional 13.60 console for the raised ceiling); capture ktty logs; file hardware support deltas.",
+   "passes": false,
+   "evidence": "APPROVAL GATE: needs operator PS5 + jailbreak entry (Relapse/Byepervisor on 13.x); see docs/06-testing-plan.md and docs/09-firmware-coverage.md",
+   "owner": "beta-qa"
+  },
+  {
+   "id": "F19",
+   "name": "Firmware coverage registry + 13.60 support documentation",
+   "description": "docs/09-firmware-coverage.md: verified matrix of FW 6.xx-14.10 (Relapse-Exploit 7.00-13.60 entry, Byepervisor-Reborn HV on 13.20/13.60, 14.x research watch), with all seven new research repos audited and the support ceiling raised 13.42 -> 13.60 across README, boot-chain docs, install guides and init.sh.",
+   "passes": true,
+   "evidence": "all 7 repos WebFetch-verified 2026-11-09; docs/09 registry written; beta-team run-tests.sh full pass after integration",
+   "owner": "architect"
+  },
+  {
+   "id": "F20",
+   "name": "FW 14.x exploit research watch",
+   "description": "Track ZigZagBoi1/PS5-14.10-Research (+ status report), pastawithpesto CVE-2026-43720 WebKit research, and kuzibelit AIO PoC until a public 14.x kernel chain exists; then extend entry docs to 14.x. Includes Byepervisor HV research threads (clean FW return, HV isolation) for 13.x.",
+   "passes": false,
+   "evidence": "RESEARCH WATCH: 14.00 patched the Relapse kernel bug, 14.10 additionally patched the S3-resume HV bug; no public kernel R/W on 14.x as of 2026-11-09. Re-verify upstream repos at each review; per docs/09-firmware-coverage.md section 5",
+   "owner": "reverse-engineer"
+  },
+  {
+   "id": "F21",
+   "name": "Explicit state-machine layer (registry + validator + spec)",
+   "description": "Eleven implicit state machines audited across NEXUS-OS and PS5GreenApple (boot intent contract, hub lifecycle, boot animation, persona router, Boot Camp rows, gate requests, voice intents, chain guards, demo modal, feature harness, workspace init) and made explicit: agents/state-machines.json (machine-readable, 70 transitions with guards and sources), docs/10-state-machines.md (human spec + findings F-A/B/C/E), tools/statecheck/statecheck.py (schema, determinism, reachability, terminal and source checks) wired into the harness.",
+   "passes": true,
+   "evidence": "statecheck --selftest PASS (4 scenarios); REGISTRY PASS: 11 machines, 70 transitions, 0 violations; beta-team run-tests.sh full pass 47/47 after integration",
+   "owner": "architect"
+  }
+ ]
 }

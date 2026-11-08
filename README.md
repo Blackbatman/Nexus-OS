@@ -34,7 +34,7 @@ and everything that is not yet proven is labeled honestly instead of faked.
 | macOS Monterey 12.7.6 bare-metal on PS5 | **Proven upstream** (FW 13.42, launch model) | `docs/03-boot-chain.md`, adapted from `rodri0x/ps5-hackintosh` |
 | Linux multi-flavor boot (8 distros) | **Direct kexec path** — simplest real target | `bootchain/kexec/chainload-linux.sh` |
 | Windows 11 boot | **Research-grade** (UefiPayload → bootmgfw.efi, USB-only, no GPU accel) | `bootchain/kexec/chainload-windows.sh` |
-| NEXUS Hub v2 (real kexec wiring) | **Spec complete** — patch plan against PS5GreenApple | `nexus-hub/greapple-v2/` |
+| NEXUS Hub v2 (real kexec wiring) | **Implemented (F17)** — real C patches, unit-tested + visually verified | `patches/PS5GreenApple/`, `docs/11-greapple-v2-impl.md` |
 | KDE Plasma "NEXUS Metro" theme | **Setup script + colorscheme** (top panel, centered dock, global menu, glass) | `nexus-hub/plasma/` |
 | Nested OS harness (macOS in terminal, Windows in terminal) | **Runnable harness** + permission gate | `nested-os/` |
 | Voice control (DIC — DualSense Integrated Command Interface) | **Module + local whisper.cpp design** | `tools/voice/` |
@@ -52,6 +52,7 @@ nexus-os/
 ├── .claude/agents/            # 7 specialist agents (Planner, RE, Kernel, UI, Integration, Beta QA, Architect)
 ├── agents/                    # feature_list.json + state-machines.json + init.sh + progress notes (long-run harness)
 ├── bootchain/                 # kexec/chainload scripts, ACPI MADT fake generator, stage1 notes
+├── patches/                   # applied-with-evidence upstream patches (PS5GreenApple greapple-v2.1)
 ├── nexus-hub/
 │   ├── web-demo/              # interactive NEXUS Hub UI demo (open in any browser)
 │   ├── plasma/                # KDE Plasma NEXUS Metro theme pack + setup script

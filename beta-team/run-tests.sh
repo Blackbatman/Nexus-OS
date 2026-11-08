@@ -124,6 +124,31 @@ else
   skip "nexus_boot.c host syntax" "gcc absent"
 fi
 
+# --------------------------------------------- F17 greapple-v2 (third_party)
+# Real code patches to third_party/PS5GreenApple (nexus-hub/greapple-v2 spec).
+# All clone-dependent checks SKIP cleanly when agents/init.sh has not run.
+chk "greapple patch file present" test -s patches/PS5GreenApple/greapple-v2.1.patch
+GA="$ROOT/third_party/PS5GreenApple"
+if [ -d "$GA/.git" ]; then
+  chk "greapple: patch applies to fresh clone" bash -c "
+    set -e; T=\$(mktemp -d)
+    git clone --quiet --depth 1 '$GA' \"\$T/ga\" 2>/dev/null
+    git -C \"\$T/ga\" apply --check '$ROOT/patches/PS5GreenApple/greapple-v2.1.patch'
+    rm -rf \"\$T\""
+  chk "greapple: host build (make host)" make -C "$GA" host
+  chk "greapple: nexus_boot unit tests (F17 definition of done)" make -C "$GA" nexus-unit
+  chk "greapple: shots pipeline + 3 new PNGs" bash -c "
+    set -e; make -C '$GA' shots >/dev/null 2>&1
+    for p in nexus-stage-ok nexus-stage-fail bootcamp-volumes; do
+      [ -f '$GA/shots/'\"\$p\"'.png' ] || { echo \"missing \$p.png\"; exit 1; }
+    done
+    echo '3 new PNGs present'"
+  chk "greapple: hub-written intent accepted by the NEXUS reader" \
+      bash bootchain/kexec/nexus-boot-select.sh --dry-run --select "$GA/data/NEXUS/boot-select.json"
+else
+  skip "F17 greapple checks (build/unit/shots/reader)" "third_party/PS5GreenApple not cloned (run agents/init.sh)"
+fi
+
 # ---------------------------------------------------------------- summary
 printf '%s\n' "${ROWS[@]}"
 echo "────────────────────────────────────────────"

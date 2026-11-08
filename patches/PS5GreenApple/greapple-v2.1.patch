@@ -1,0 +1,2005 @@
+diff --git a/.gitignore b/.gitignore
+index 1eea87c..808b8ab 100755
+--- a/.gitignore
++++ b/.gitignore
+@@ -20,3 +20,7 @@ shots-theme/
+ 
+ # local settings (see .env.example)
+ .env
++
++# greapple-v2 runtime fixtures (created by make)
++preset-fixture/
++blocked-fixture/
+diff --git a/Makefile b/Makefile
+index b678c3b..f0bc8b7 100755
+--- a/Makefile
++++ b/Makefile
+@@ -78,6 +78,28 @@ host:
+ 	@mkdir -p build/host
+ 	$(HOST_CC) $(HOST_CFLAGS) -o build/host/$(NAME)-dump $(HOST_SRCS) -lm
+ 
++# ------------- NEXUS boot-intent unit tests (greapple-v2 Patch 1) -------------
++# F17 definition of done: valid write, atomic rename after a simulated
++# crash, unwritable dir -> error surfaced, plus the SM-01 contract edges.
++nexus-unit:
++	@mkdir -p build/host
++	$(HOST_CC) $(HOST_CFLAGS) -o build/host/test-nexus-boot \
++	        tests/test_nexus_boot.c $(SRC_DIR)/nexus_boot.c $(SRC_DIR)/core.c -lm
++	./build/host/test-nexus-boot
++
++# Host preset fixture = the mock boot-USB root. Omarchy is seeded so the
++# demo stages a READY flavor; every other flavor shows the honest
++# SIMULATED status line (preset missing), exactly like real hardware
++# without a staged kernel.
++preset-fixture:
++	@mkdir -p preset-fixture/linux/omarchy
++	: > preset-fixture/linux/omarchy/vmlinuz
++
++# A regular FILE used AS the data dir -> every mkdir inside fails with
++# ENOTDIR (even as root), which is how nexus-stage-fail.png is produced.
++blocked-fixture:
++	: > blocked-fixture
++
+ # ------------------------- Windows dump builds (cross) -------------------------
+ # Cross-compiled from Linux/macOS with mingw-w64 (docs/INSTALL.md has the
+ # toolchain install lines). Produces a static PE that runs the full desktop
+@@ -97,13 +119,18 @@ win-x86:
+ 	@mkdir -p build/x86
+ 	$(WIN_CC_X86) $(WIN_CFLAGS) -o build/x86/$(NAME)-dump.exe $(WIN_SRCS)
+ 
+-shots: host
++shots: host preset-fixture blocked-fixture
+ 	./build/host/$(NAME)-dump --script scripts/demo-script.txt --outdir shots
++	@# Stage A failure shot: the same app pointed at an unwritable data dir
++	@# (host-only env override; on PS5 /data is the real shared root).
++	NEXUS_DATA_DIR=./blocked-fixture ./build/host/$(NAME)-dump \
++	        --script scripts/demo-stage-fail.txt --outdir shots
++
+ 
+ clean:
+-	rm -rf build $(NAME).elf shots
++	rm -rf build $(NAME).elf shots preset-fixture blocked-fixture
+ 
+-.PHONY: all host win-x64 win-x86 sim shots icon clean deploy windows windows-x86
++.PHONY: all host nexus-unit preset-fixture blocked-fixture win-x64 win-x86 sim shots icon clean deploy windows windows-x86
+ 
+ # ------------------------- desktop sim (macOS / Linux) -------------------------
+ # Builds the real SDL2 windowed simulation (backend_sdl2.c) without any PS5
+diff --git a/scripts/demo-script.txt b/scripts/demo-script.txt
+index 4096a13..3774d2d 100755
+--- a/scripts/demo-script.txt
++++ b/scripts/demo-script.txt
+@@ -6,7 +6,13 @@
+ # 102 TextEdit, 103 Boot Camp, 104 NEXUS, 105 Credits, 106 Settings, 107 About,
+ # 108 Trash), 200+ finder sidebar, 230+i finder rows, 300+ terminal (304 input),
+ # 400+ textedit, 500+ about (500 System Report, 502 Telemetry),
+-# 600+ settings, 700+ bootcamp, 800+ osk (903 = Enter), 9100+ bootmgr rows.
++# 600+ settings (605 theme preview), 700+ bootcamp (710+ mount, 730+ stage),
++# 800+ osk (903 = Enter), 9100+ bootmgr rows, 9001 = NEXUS STAGE button.
++#
++# v2.1 (greapple-v2 Patch 6): NEXUS INITIATE became STAGE FOR NEXT BOOT -
++# the hub writes /data/NEXUS/boot-select.json and shows exactly one honest
++# status line: STAGED / SIMULATED / STAGE FAILED. Nothing re-themes unless
++# Settings -> "Theme preview (cosmetic only)" is on (it ships off).
+ 
+ # ---- 1. boot animation (logo fade + ktty-style verbose log) ----
+ wait 900
+@@ -72,10 +78,10 @@ wait 150
+ press cross
+ wait 800
+ shot 08b-terminal-fastfetch
+-
+-# ---- 9. TextEdit ----
+ press circle
+ wait 200
++
++# ---- 9. TextEdit ----
+ sel 102
+ wait 150
+ press cross
+@@ -93,11 +99,11 @@ shot 10-textedit-edit
+ press circle
+ wait 200
+ 
+-# ---- 11. Boot Camp ----
++# ---- 11. Boot Camp (real volume rows, SM-05) ----
+ sel 103
+ wait 150
+ press cross
+-wait 500
++wait 600
+ shot 11-bootcamp
+ press circle
+ wait 200
+@@ -118,7 +124,7 @@ shot 13-system-report
+ press circle
+ wait 200
+ 
+-# ---- 14. Settings ----
++# ---- 14. Settings (now with the NEXUS Boot Stage truth table) ----
+ sel 106
+ wait 150
+ press cross
+@@ -127,11 +133,11 @@ shot 14-settings
+ press circle
+ wait 200
+ 
+-# close the leftover TextEdit so the persona splash renders unobstructed
++# close the leftover TextEdit so the hub renders unobstructed
+ press circle
+ wait 200
+ 
+-# ---- 14b. NEXUS OS hub ----
++# ---- 14b. NEXUS OS hub (Stage A: stages a boot intent) ----
+ sel 104
+ wait 150
+ press cross
+@@ -164,6 +170,42 @@ press down
+ wait 300
+ shot 14d-nexus-linux
+ 
++# ---- 14e. STAGE omarchy (preset fixture exists) -> STAGED status line ----
++sel 9001
++wait 100
++press cross
++wait 500
++shot nexus-stage-ok
++
++# ---- 14e2. STAGE ubuntu (no preset) -> SIMULATED status line ----
++press down
++wait 200
++sel 9001
++wait 100
++press cross
++wait 500
++shot nexus-stage-simulated
++
++# ---- 14e3. re-stage omarchy so the staged intent stays valid ----
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 200
++sel 9001
++wait 100
++press cross
++wait 400
++
+ # ---- 14f. NEXUS Boot Manager page - honest chain-load catalog (v1.1.0 merge) ----
+ press r1
+ wait 300
+@@ -183,24 +225,35 @@ shot 14h-nexus-quick-credits
+ press circle
+ wait 200
+ 
+-# ---- 14e. INITIATE Omarchy: splash persona + honest toast ----
+-sel 9001
+-wait 100
+-press cross
+-wait 700
+-shot 14e-linux-persona
++# ---- close the hub (page 0) ----
++press circle
++wait 300
+ 
+-# ---- restore the macOS persona: splash Boot Manager -> Boot Camp -> macOS ----
+-sel 918
+-wait 100
++# ---- 14j. Terminal `nexus-status` (Patch 4): staged intent + boot log ----
++sel 101
++wait 150
+ press cross
+ wait 500
+-sel 704
+-wait 100
++sel 304
++wait 200
+ press cross
+ wait 300
++type nexus-status
++wait 200
++sel 903
++wait 150
++press cross
++wait 600
++shot 14j-nexus-status-terminal
++press circle
++wait 300
+ 
+-# ---- close Boot Camp back to the desktop ----
++# ---- 14k. Boot Camp again: volume rows + the stage result line ----
++sel 103
++wait 150
++press cross
++wait 600
++shot bootcamp-volumes
+ press circle
+ wait 200
+ 
+diff --git a/scripts/demo-stage-fail.txt b/scripts/demo-stage-fail.txt
+new file mode 100644
+index 0000000..2787b8a
+--- /dev/null
++++ b/scripts/demo-stage-fail.txt
+@@ -0,0 +1,43 @@
++# ---- Stage A failure shot (greapple-v2 Patch 6): the same app, but the shared
++# data dir is unwritable - `make shots` runs this with
++#   NEXUS_DATA_DIR=./blocked-fixture
++# where blocked-fixture is a regular FILE, so every mkdir inside fails with
++# ENOTDIR and the hub must surface STAGE FAILED instead of pretending.
++wait 900
++wait 4000          # let the boot animation finish before touching the dock
++
++# ---- desktop, straight into the NEXUS hub ----
++move 654 1000
++sel 104
++wait 150
++press cross
++wait 600
++shot fail-setup-hub-open
++
++# ---- select Linux -> Omarchy (7 downs from Ubuntu) ----
++press right
++wait 300
++press right
++wait 300
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 80
++press down
++wait 200
++
++# ---- STAGE -> the write fails -> STAGE FAILED status line ----
++sel 9001
++wait 100
++press cross
++wait 500
++shot nexus-stage-fail
++exit
+diff --git a/src/app_bootcamp.c b/src/app_bootcamp.c
+index e8fafe9..1e2c959 100755
+--- a/src/app_bootcamp.c
++++ b/src/app_bootcamp.c
+@@ -1,8 +1,16 @@
+-/* app_bootcamp.c - Boot Camp: dual/tri-boot detection + OS chrome showcase
++/* app_bootcamp.c - Boot Camp: real volumes, real staging (greapple-v2 v2.1)
+  *
+- * Scans the filesystem for Linux boot files (bzImage/initramfs) and Windows
+- * partitions (ntfs/exfat mounts), and demonstrates the three window chrome
+- * styles by opening preview shells.
++ * v2.0.1 scanned a handful of fixed paths and offered simulated handoffs.
++ * v2.1 enumerates the REAL block devices through the backend
++ * (backend_list_volumes -> lsblk on the Linux stage, visible roots on bare
++ * FW userland) and turns stageable rows into boot intents via
++ * nexus_write_select - the same SM-01 contract the NEXUS hub uses. Nothing
++ * here boots anything; STAGE writes /data/NEXUS/boot-select.json and the
++ * Linux-stage selector (nexus-boot-select.sh) does the rest.
++ *
++ * Row states follow SM-05 "Boot Camp Volume Row" 1:1:
++ *   DETECTED -> UNMOUNTED/MOUNTED -> STAGEABLE_L | STAGEABLE_W |
++ *   SOURCE_ONLY_M | LOCKED_BY_POLICY | LIMITED_FW.
+  */
+ #include "apps.h"
+ #include "wm.h"
+@@ -13,61 +21,71 @@
+ #include "icons.h"
+ #include "desktop.h"
+ #include "common.h"
++#include "nexus_boot.h"
+ #include <sys/stat.h>
+ 
++#define BC_MAXV 16
++#define BC_VISIBLE 7
++
+ typedef struct {
+-    int  linux_ok, win_ok;
+-    char bz[256], initrd[256], winpart[256];
+-    long bz_size, initrd_size;
+-    char wintype[32];
++    VolumeInfo vols[BC_MAXV];
++    int        nvols;
++    int        scroll;
++    char       payload[256];        /* PS5-built Linux payload line, if any */
++    char       stage_status[96];    /* last stage result (SM-01 vocabulary) */
++    char       stage_detail[160];
++    int        stage_kind;          /* 0 none, 1 staged, 2 simulated, 3 failed */
+ } BC;
+ 
+ static BC S_bc;
+ static void bc_draw(Win *w);   /* forward decl */
+ 
++static void vol_collect_cb(const VolumeInfo *v, void *user)
++{
++    (void)user;
++    if (S_bc.nvols < BC_MAXV) S_bc.vols[S_bc.nvols++] = *v;
++}
++
++/* probe a mounted volume for a PS5-built Linux payload */
++static int vol_has_bzimage(const VolumeInfo *v, char *out, size_t n)
++{
++    if (!v->mounted) return 0;
++    static const char *rel[] = { "/boot/bzImage", "/linux/bzImage", "/bzImage", NULL };
++    for (int i = 0; rel[i]; i++) {
++        char p[512];
++        psa_snprintf(p, sizeof(p), "%s%s", v->mountpoint, rel[i]);
++        if (file_exists(p)) {
++            if (out) psa_strcpy(out, n, p);
++            return 1;
++        }
++    }
++    return 0;
++}
++
++/* an NTFS row is stageable for chain W when it carries the boot manager */
++static int vol_has_bootmgfw(const VolumeInfo *v)
++{
++    if (!v->mounted) return 0;
++    char p[512];
++    psa_snprintf(p, sizeof(p), "%s/EFI/Boot/bootmgfw.efi", v->mountpoint);
++    return file_exists(p);
++}
++
+ static void bc_detect(void)
+ {
+     memset(&S_bc, 0, sizeof(S_bc));
++    backend_list_volumes(vol_collect_cb, NULL);
++
++    /* the /data payload stays first-class: it is visible in every context */
+     static const char *bz_paths[] = {
+-        "/data/PS5GreenApple/linux/bzImage", "/mnt/usb0/boot/bzImage",
++        PSA_DATA_DIR "/linux/bzImage", "/mnt/usb0/boot/bzImage",
+         "/mnt/usb1/boot/bzImage", "/boot/bzImage", "./linux/bzImage", NULL
+     };
+-    static const char *ird_paths[] = {
+-        "/data/PS5GreenApple/linux/initramfs.img", "/mnt/usb0/boot/initramfs.img",
+-        "/mnt/usb1/boot/initramfs.img", "/boot/initramfs.img", "./linux/initramfs.img", NULL
+-    };
+     for (int i = 0; bz_paths[i]; i++)
+         if (file_exists(bz_paths[i])) {
+-            psa_strcpy(S_bc.bz, sizeof(S_bc.bz), bz_paths[i]);
+-            S_bc.bz_size = file_size(bz_paths[i]);
+-            break;
+-        }
+-    for (int i = 0; ird_paths[i]; i++)
+-        if (file_exists(ird_paths[i])) {
+-            psa_strcpy(S_bc.initrd, sizeof(S_bc.initrd), ird_paths[i]);
+-            S_bc.initrd_size = file_size(ird_paths[i]);
++            psa_snprintf(S_bc.payload, sizeof(S_bc.payload), "%s", bz_paths[i]);
+             break;
+         }
+-    S_bc.linux_ok = S_bc.bz[0] && S_bc.initrd[0];
+-
+-    /* windows partition: look for ntfs/exfat mounts */
+-    FILE *f = fopen("/proc/mounts", "r");
+-    if (f) {
+-        char line[512];
+-        while (fgets(line, sizeof(line), f)) {
+-            char dev[128], mp[128], type[32];
+-            if (sscanf(line, "%127s %127s %31s", dev, mp, type) == 3) {
+-                if (!strcmp(type, "ntfs") || !strcmp(type, "ntfs3") ||
+-                    !strcmp(type, "exfat") || !strcmp(type, "vfat")) {
+-                    psa_snprintf(S_bc.winpart, sizeof(S_bc.winpart), "%s on %s", dev, mp);
+-                    psa_strcpy(S_bc.wintype, sizeof(S_bc.wintype), type);
+-                    S_bc.win_ok = 1;
+-                    break;
+-                }
+-            }
+-        }
+-        fclose(f);
+-    }
+ }
+ 
+ void app_bootcamp_open(void)
+@@ -82,71 +100,197 @@ void app_bootcamp_open(void)
+ static void win_shell_draw(Win *w);
+ static void linux_shell_draw(Win *w);
+ 
+-static void status_line(char *out, int n, int ok, const char *what, const char *detail)
++/* ---- row classification (SM-05 states -> chip text + actions) ---- */
++typedef enum {
++    ROW_UNMOUNTED = 0,   /* detected, not mounted                */
++    ROW_MOUNTED,         /* mounted, nothing stageable yet       */
++    ROW_STAGEABLE_L,     /* ext4 + PS5-built bzImage -> chain L  */
++    ROW_STAGEABLE_W,     /* NTFS + bootmgfw.efi      -> chain W  */
++    ROW_SOURCE_ONLY_M,   /* APFS: chain M boots via stage1       */
++    ROW_LOCKED,          /* internal NVMe: policy-locked         */
++    ROW_LIMITED          /* bare FW userland: no block info      */
++} RowState;
++
++static RowState vol_state(const VolumeInfo *v)
+ {
+-    psa_snprintf(out, (size_t)n, "%s %s%s%s", ok ? "[FOUND]" : "[  -  ]", what,
+-                 detail && detail[0] ? ": " : "", detail ? detail : "");
++    if (v->internal_nvme) return ROW_LOCKED;
++    if (v->limited)       return ROW_LIMITED;
++    if (!v->mounted)      return ROW_UNMOUNTED;
++    int is_linux_fs  = !strcmp(v->fstype, "ext4");
++    int is_windows_fs = !strcmp(v->fstype, "ntfs") || !strcmp(v->fstype, "ntfs3");
++    if (is_linux_fs && vol_has_bzimage(v, NULL, 0)) return ROW_STAGEABLE_L;
++    if (is_windows_fs && vol_has_bootmgfw(v))       return ROW_STAGEABLE_W;
++    if (!strcmp(v->fstype, "apfs"))                 return ROW_SOURCE_ONLY_M;
++    return ROW_MOUNTED;
++}
++
++static const char *vol_chip(RowState st)
++{
++    switch (st) {
++    case ROW_UNMOUNTED:    return "UNMOUNTED";
++    case ROW_MOUNTED:      return "MOUNTED";
++    case ROW_STAGEABLE_L:  return "STAGEABLE \xc2\xb7 chain L \xc2\xb7 READY";
++    case ROW_STAGEABLE_W:  return "STAGEABLE \xc2\xb7 chain W \xc2\xb7 RESEARCH";
++    case ROW_SOURCE_ONLY_M: return "SOURCE ONLY \xc2\xb7 chain M via stage1";
++    case ROW_LOCKED:       return "LOCKED BY POLICY";
++    default:               return "LIMITED \xc2\xb7 no block info in FW userland";
++    }
++}
++
++static uint32_t vol_chip_color(RowState st)
++{
++    switch (st) {
++    case ROW_STAGEABLE_L:  return RGB(70, 170, 90);
++    case ROW_STAGEABLE_W:  return RGB(40, 120, 200);
++    case ROW_SOURCE_ONLY_M: return RGB(150, 100, 200);
++    case ROW_LOCKED:       return RGB(200, 40, 160);   /* upstream magenta */
++    case ROW_LIMITED:      return RGB(170, 140, 60);
++    default:               return RGB(90, 110, 130);
++    }
++}
++
++static void bc_set_stage_msg(int kind, const char *status, const char *detail)
++{
++    S_bc.stage_kind = kind;
++    psa_strcpy(S_bc.stage_status, sizeof(S_bc.stage_status), status);
++    psa_strcpy(S_bc.stage_detail, sizeof(S_bc.stage_detail), detail);
++}
++
++static void vol_mount(const VolumeInfo *v, int do_mount)
++{
++    char cmd[512];
++    if (do_mount)
++        psa_snprintf(cmd, sizeof(cmd), "mount /dev/%s /mnt/%s 2>&1",
++                     v->name, v->name);
++    else
++        psa_snprintf(cmd, sizeof(cmd), "umount %s 2>&1", v->mountpoint);
++    FILE *f = popen(cmd, "r");
++    int ok = f && pclose(f) == 0;
++    bc_detect();                             /* re-enumerate: live truth */
++    if (do_mount)
++        desktop_toast(ok ? "mounted /dev/%s" : "mount /dev/%s failed (see shell)",
++                      v->name);
++    else
++        desktop_toast(ok ? "unmounted %s" : "umount failed (see shell)",
++                      v->mountpoint);
++}
++
++static void vol_stage(const VolumeInfo *v)
++{
++    RowState st = vol_state(v);
++    const char *target = (st == ROW_STAGEABLE_L) ? "linux" : "windows";
++    const char *flavor = NULL;
++    const char *slug   = nexus_flavor_slug(desktop_get_linux_persona());
++    char fbuf[16];
++    if (st == ROW_STAGEABLE_L && slug) {
++        psa_strcpy(fbuf, sizeof(fbuf), slug);
++        flavor = fbuf;                       /* the hub's flavor rides along */
++    }
++    char status[96], detail[160];
++    int rc = nexus_stage_guarded(target, flavor, status, sizeof(status),
++                                 detail, sizeof(detail));
++    bc_set_stage_msg(rc == 0 ? 1 : (rc == 1 ? 2 : 3), status, detail);
++    if (rc == 0)
++        desktop_toast("STAGED from %s: %s%s%s", v->name, target,
++                      flavor ? ":" : "", flavor ? flavor : "");
++    else if (rc == 1)
++        desktop_toast("SIMULATED: %s has no PS5 kernel staged", flavor);
++    else
++        desktop_toast("STAGE FAILED: %s", detail);
+ }
+ 
+ static void bc_draw(Win *w)
+ {
+-    int x = w->x + 30, yy = w->y + 62;
++    int x = w->x + 30, yy = w->y + 58;
+     int cw = w->w - 60;
+ 
+-    font_draw(FONT_BOLD, "Detected bootable systems", x, yy, 21, g_theme.text_bright);
++    font_draw(FONT_BOLD, "Boot Camp - real volumes on this machine", x, yy, 21,
++              g_theme.text_bright);
++    font_draw(FONT_UI, S_bc.nvols > 0
++              ? "from backend_list_volumes: lsblk on the Linux stage, visible roots on bare FW"
++              : "no volumes visible from this context",
++              x + cw - 560, yy + 4, 14, g_theme.text_dim);
+     yy += 40;
+ 
+-    char line[512];
+-    gfx_round_rect(x, yy, cw, 150, 12, RGB(38, 38, 44));
+-    icons_draw_glyph(ICON_LINUX, x + 44, yy + 75, 44, RGB(255, 190, 90));
+-    int lx = x + 84;
+-    status_line(line, sizeof(line), S_bc.bz[0], "bzImage", S_bc.bz);
+-    font_draw(FONT_MONO, line, lx, yy + 18, 15, S_bc.bz[0] ? RGB(120, 220, 130) : g_theme.text_dim);
+-    status_line(line, sizeof(line), S_bc.initrd[0], "initramfs", S_bc.initrd);
+-    font_draw(FONT_MONO, line, lx, yy + 42, 15, S_bc.initrd[0] ? RGB(120, 220, 130) : g_theme.text_dim);
+-    font_draw(FONT_UI, S_bc.linux_ok ? "Linux payload ready to chainload"
+-                                     : "Place bzImage + initramfs.img in " PSA_DATA_DIR "/linux/",
+-              lx, yy + 68, 16, g_theme.text_dim);
+-    if (ui_button(700, x + cw - 210, yy + 92, 190, 42, "Boot Linux", S_bc.linux_ok)) { }
+-    if (ui_pressed(700)) {
+-        /* simulated handoff: pure UI state transfer, nothing reboots */
+-        if (S_bc.linux_ok) {
+-            desktop_set_os_target(OS_TARGET_LINUX);
+-            wm_open(WIN_BC_LINUX, "GNOME Terminal - Boot Camp", CHROME_LINUX,
+-                    560, 300, 880, 480, linux_shell_draw);
+-            desktop_toast("Chainloading Linux kernel... (simulated shell handoff)");
+-        } else {
+-            desktop_toast("Linux files not found");
++    /* ---- volume table (SM-05 rows) ---- */
++    int row_h = 58;
++    int shown = 0;
++    if (S_bc.scroll > S_bc.nvols - BC_VISIBLE) S_bc.scroll = S_bc.nvols - BC_VISIBLE;
++    if (S_bc.scroll < 0) S_bc.scroll = 0;
++    for (int i = S_bc.scroll; i < S_bc.nvols && shown < BC_VISIBLE; i++, shown++) {
++        const VolumeInfo *v = &S_bc.vols[i];
++        RowState st = vol_state(v);
++        int ry = yy + shown * row_h;
++
++        gfx_round_rect(x, ry, cw, row_h - 6, 10, RGBA(38, 38, 44, 200));
++        font_draw(FONT_MONO, "/dev/", x + 14, ry + 8, 14, g_theme.text_dim);
++        font_draw(FONT_BOLD, v->name, x + 58, ry + 6, 17, RGB(220, 230, 240));
++
++        char desc[192];
++        psa_snprintf(desc, sizeof(desc), "%s%s%s%s%s",
++                     v->fstype[0] ? v->fstype : "fs?",
++                     v->label[0]  ? " \xc2\xb7 " : "", v->label,
++                     v->size[0]   ? " \xc2\xb7 " : "", v->size);
++        font_draw(FONT_UI, desc, x + 58, ry + 28, 14, RGB(150, 175, 200));
++        if (v->mounted && v->mountpoint[0] && strcmp(v->mountpoint, "/")) {
++            font_draw(FONT_UI, v->mountpoint, x + 58 + font_text_w(FONT_UI, desc, 14) + 16,
++                      ry + 28, 14, g_theme.text_dim);
+         }
+-    }
+-    yy += 166;
+-
+-    gfx_round_rect(x, yy, cw, 150, 12, RGB(38, 38, 44));
+-    icons_draw_glyph(ICON_WIN, x + 44, yy + 75, 44, RGB(120, 180, 255));
+-    status_line(line, sizeof(line), S_bc.win_ok, "Windows partition", S_bc.winpart);
+-    font_draw(FONT_MONO, line, lx, yy + 24, 15, S_bc.win_ok ? RGB(120, 220, 130) : g_theme.text_dim);
+-    font_draw(FONT_UI, S_bc.win_ok ? "NTFS/ exFAT volume detected - safe unmount recommended"
+-                                   : "No NTFS/exFAT volume mounted",
+-              lx, yy + 52, 16, g_theme.text_dim);
+-    if (ui_button(701, x + cw - 210, yy + 92, 190, 42, "Boot Windows", S_bc.win_ok)) { }
+-    if (ui_pressed(701)) {
+-        /* simulated handoff: pure UI state transfer, nothing reboots */
+-        if (S_bc.win_ok) {
+-            desktop_set_os_target(OS_TARGET_WINDOWS);
+-            wm_open(WIN_BC_WIN, "Command Prompt - Boot Camp", CHROME_WIN,
+-                    520, 260, 880, 480, win_shell_draw);
+-            desktop_toast("Rebooting into Windows Boot Manager... (simulated)");
+-        } else {
+-            desktop_toast("No Windows volume found");
++
++        /* state chip */
++        const char *chip = vol_chip(st);
++        int chw = font_text_w(FONT_BOLD, chip, 13) + 20;
++        int chx = x + cw - chw - 196;
++        gfx_round_rect(chx, ry + 8, chw, 24, 6, vol_chip_color(st));
++        font_draw(FONT_BOLD, chip, chx + 10, ry + 13, 13, RGB(255, 255, 255));
++
++        /* actions: mount/unmount + stage (never on locked/limited rows) */
++        int acts = 0;
++        if (st != ROW_LOCKED && st != ROW_LIMITED && st != ROW_SOURCE_ONLY_M) {
++            int ax = x + cw - 184;
++            int id_m = 710 + i, id_s = 730 + i;
++            if (ui_button(id_m, ax, ry + 5, 88, 38,
++                          st == ROW_UNMOUNTED ? "MOUNT" : "UNMOUNT", 1)) { }
++            if (ui_pressed(id_m)) vol_mount(v, st == ROW_UNMOUNTED);
++            acts = 1;
++            if (st == ROW_STAGEABLE_L || st == ROW_STAGEABLE_W) {
++                if (ui_button(id_s, ax + 96, ry + 5, 88, 38, "STAGE", 1)) { }
++                if (ui_pressed(id_s)) vol_stage(v);
++            }
+         }
++        (void)acts;
++    }
++    if (!S_bc.nvols) {
++        font_draw(FONT_UI, "no block devices visible from this context - "
++                  "on bare FW userland only /mnt/usb0 and /data exist",
++                  x + 8, yy + 8, 15, g_theme.text_dim);
++        shown = 1;
++    } else if (S_bc.nvols > BC_VISIBLE) {
++        font_draw(FONT_UI, "+ more devices (up/down scrolls)", x + 8,
++                  yy + BC_VISIBLE * row_h + 2, 13, g_theme.text_dim);
+     }
+-    yy += 182;
++    yy += BC_VISIBLE * row_h + 18;
+ 
+-    font_draw(FONT_BOLD, "Shell previews (chrome showcase)", x, yy, 21, g_theme.text_bright);
+-    yy += 40;
+-    if (ui_button(702, x, yy, 250, 46, "Open Windows shell", 0)) { }
+-    if (ui_button(703, x + 262, yy, 250, 46, "Open Linux shell", 0)) { }
+-    if (ui_button(704, x + 524, yy, 250, 46, "Use macOS shell", 0)) { }
++    /* last stage result, same vocabulary as the NEXUS hub */
++    if (S_bc.stage_status[0]) {
++        uint32_t sc = S_bc.stage_kind == 1 ? RGB(120, 230, 150)
++                    : S_bc.stage_kind == 2 ? RGB(235, 200, 120)
++                                           : RGB(235, 130, 120);
++        font_draw(FONT_BOLD, S_bc.stage_status, x, yy, 16, sc);
++        if (S_bc.stage_detail[0])
++            font_draw(FONT_UI, S_bc.stage_detail, x, yy + 22, 14, RGB(140, 170, 200));
++    } else if (S_bc.payload[0]) {
++        char pl[288];
++        psa_snprintf(pl, sizeof(pl), "Linux payload: %s", S_bc.payload);
++        font_draw(FONT_UI, pl, x, yy, 15, RGB(150, 200, 160));
++    }
++    yy += 46;
++
++    /* ---- shell previews (chrome showcase - still cosmetic, still honest) */
++    if (ui_button(702, x, yy, 250, 44, "Windows shell preview", 0)) { }
++    if (ui_button(703, x + 262, yy, 250, 44, "Linux shell preview", 0)) { }
++    if (ui_button(704, x + 524, yy, 250, 44, "macOS shell preview", 0)) { }
++    if (ui_button(705, x + 786, yy, 250, 44, "Open NEXUS roster", 0)) { }
+     if (ui_pressed(702)) {
+         desktop_set_os_target(OS_TARGET_WINDOWS);
+         wm_open(WIN_BC_WIN, "Command Prompt - Boot Camp", CHROME_WIN, 520, 260, 880, 480, win_shell_draw);
+@@ -159,25 +303,21 @@ static void bc_draw(Win *w)
+         desktop_set_os_target(OS_TARGET_MACOS);
+         desktop_toast("macOS Aqua Slate shell restored");
+     }
+-
+-    yy += 62;
+-    /* NEXUS cross-link: the full honest OS roster (Windows 7-11, macOS,
+-     * 8 Linux flavors) lives in the NEXUS hub; this button hands off. */
+-    if (ui_button(705, x, yy, 250, 46, "Open NEXUS roster", 0)) { }
+     if (ui_pressed(705)) app_nexus_open();
+-    font_draw(FONT_UI, "Full OS roster: Windows 7-11, macOS + 8 Linux flavors (theme personas)",
+-              x + 262, yy + 16, 15, g_theme.text_dim);
+-    yy += 62;
+-    font_draw(FONT_UI, "Boot Camp reuses the real OS shell renderers and syncs the whole desktop",
+-              x, yy, 15, g_theme.text_dim);
+-    font_draw(FONT_UI, "background in a single frame. Foreign shells stay interactive: the Windows",
+-              x, yy + 20, 15, g_theme.text_dim);
+-    font_draw(FONT_UI, "taskbar runs a cascading Start menu, Linux boots through a CachyOS splash.",
+-              x, yy + 40, 15, g_theme.text_dim);
+-    font_draw(FONT_UI, "These are theme personas inside the sandbox - no OS boots from this payload.",
+-              x, yy + 60, 15, g_theme.text_dim);
+-    font_draw(FONT_UI, "Real bare-metal work: ps5-hackintosh (macOS) and ps5-linux-loader (Linux).",
+-              x, yy + 80, 15, g_theme.text_dim);
++    yy += 60;
++
++    font_draw(FONT_UI, "STAGE writes /data/NEXUS/boot-select.json - the NEXUS Linux stage"
++                       " (nexus-boot-select.sh) reads it and kexecs. Nothing boots from here.",
++              x, yy, 14, g_theme.text_dim);
++    font_draw(FONT_UI, "Internal NVMe stays LOCKED BY POLICY (upstream blocks the internal SSD on purpose).",
++              x, yy + 20, 14, g_theme.text_dim);
++    font_draw(FONT_UI, "Shell previews are theme personas inside the sandbox; real bare-metal work:",
++              x, yy + 40, 14, g_theme.text_dim);
++    font_draw(FONT_UI, "ps5-hackintosh (macOS) and ps5-linux-loader (Linux).",
++              x, yy + 60, 14, g_theme.text_dim);
++
++    if (in_clicked(BTN_DOWN) && S_bc.nvols > BC_VISIBLE) S_bc.scroll++;
++    if (in_clicked(BTN_UP)) S_bc.scroll--;
+ }
+ 
+ static void win_shell_draw(Win *w)
+diff --git a/src/app_nexus.c b/src/app_nexus.c
+index 02f8f0a..2c83f39 100644
+--- a/src/app_nexus.c
++++ b/src/app_nexus.c
+@@ -21,6 +21,8 @@
+ #include "common.h"
+ #include "theme.h"
+ #include "bootmgr.h"
++#include "nexus_boot.h"
++#include "settings.h"
+ #include <math.h>
+ 
+ #ifndef M_PI
+@@ -145,10 +147,20 @@ static int   S_cr_scroll    = 0;
+ #define BM_DETAIL_CLOSE  9202
+ 
+ static void nexus_draw(Win *w);
+-static void nexus_select_and_boot(void);
++static void nexus_confirm_selection(void);
++static void nexus_stage_status_refresh(void);
+ static void page_bootmgr_draw(Win *w);
+ static void bm_detail_draw(Win *w, int idx);
+ 
++/* ---- Stage A status (SM-01 "Boot Intent Contract", greapple-v2 Patch 2).
++ * One status line in the spec vocabulary (STAGED / SIMULATED / STAGE
++ * FAILED) plus one detail line; initialized from the currently staged
++ * intent so the hub always tells the truth about what will happen on the
++ * next Linux-stage run - including how old a stale intent is (F-C). ---- */
++static char S_stage_status[96];
++static char S_stage_detail[192];
++static int  S_stage_kind = 0;    /* 0 none, 1 staged, 2 simulated, 3 failed */
++
+ int nexus_handles_circle(void)
+ {
+     return S_page != 0;
+@@ -163,9 +175,35 @@ void app_nexus_open(void)
+         wm_raise(wm_find(WIN_NEXUS));
+     }
+     S_time = 0.0f;
++    nexus_stage_status_refresh();
+     desktop_toast("NEXUS Core Hub online");
+ }
+ 
++static void nexus_stage_status_refresh(void)
++{
++    NexusStaged st;
++    char err[128];
++    int rc = nexus_read_staged(nexus_data_dir(), &st, err, sizeof(err));
++    S_stage_kind = 0;
++    S_stage_status[0] = '\0';
++    S_stage_detail[0] = '\0';
++    if (rc == 0 && st.present) {
++        char sum[96];
++        nexus_status_summary(nexus_data_dir(), sum, sizeof(sum));
++        if (!st.version_ok || !st.target_ok || !st.flavor_ok) {
++            S_stage_kind = 3;
++            psa_strcpy(S_stage_status, sizeof(S_stage_status),
++                       "IGNORED INTENT \xc2\xb7 the selector will refuse it");
++            psa_strcpy(S_stage_detail, sizeof(S_stage_detail), sum);
++        } else {
++            S_stage_kind = 1;
++            psa_strcpy(S_stage_status, sizeof(S_stage_status),
++                       "STAGED \xc2\xb7 will boot on next Linux-stage run");
++            psa_strcpy(S_stage_detail, sizeof(S_stage_detail), sum);
++        }
++    }
++}
++
+ /* simple word-wrap into `max_lines` lines that fit `max_w` px */
+ static int wrap_text(const char *text, int font, int size, int max_w,
+                      char lines[][160], int max_lines)
+@@ -271,16 +309,29 @@ static void page_selector_draw(Win *w)
+                   cx + spacing - 90, cy + 165, 14, RGB(120, 180, 200));
+     }
+ 
+-    /* INITIATE button */
++    /* STAGE button - stages the boot intent; it never boots, re-themes,
++     * or closes anything by itself (SM-01: no writer ever boots). */
+     int btn_x = cx - 140, btn_y = cy + 280, btn_w = 280, btn_h = 56;
+-    ui_add_hotspot(9001, btn_x, btn_y, btn_w, btn_h, "Initiate");
++    ui_add_hotspot(9001, btn_x, btn_y, btn_w, btn_h, "Stage");
+     int sel = (ui_sel_id() == 9001);
+     gfx_round_rect(btn_x, btn_y, btn_w, btn_h, 10, sel ? RGB(0, 160, 220) : RGB(0, 100, 160));
+     gfx_round_rect_outline(btn_x, btn_y, btn_w, btn_h, 10, 2, RGB(0, 220, 255));
+-    font_draw(FONT_BOLD, "INITIATE ENVIRONMENT", btn_x + 35, btn_y + 18, 20, RGB(255, 255, 255));
++    font_draw(FONT_BOLD, "STAGE FOR NEXT BOOT", btn_x + 32, btn_y + 18, 20, RGB(255, 255, 255));
+ 
+     if (ui_pressed(9001))
+-        nexus_select_and_boot();
++        nexus_confirm_selection();
++
++    /* Stage A status: exactly one honest line under the confirmed card
++     * (greapple-v2 Patch 2). staged is not booted - ever - from here. */
++    if (S_stage_status[0]) {
++        uint32_t sc = S_stage_kind == 1 ? RGB(120, 230, 150)
++                    : S_stage_kind == 2 ? RGB(235, 200, 120)
++                                        : RGB(235, 130, 120);
++        font_draw(FONT_BOLD, S_stage_status, btn_x - 120, btn_y + btn_h + 26, 18, sc);
++        if (S_stage_detail[0])
++            font_draw(FONT_UI, S_stage_detail, btn_x - 120, btn_y + btn_h + 52, 15,
++                      RGB(140, 170, 200));
++    }
+ 
+     /* selector navigation (L1/R1 pages are handled at top level) */
+     if (in_clicked(BTN_LEFT))  S_selected = (S_selected + 2) % 3;
+@@ -525,7 +576,7 @@ static void nexus_draw(Win *w)
+     static const char *page_names[] = { "OS SELECTOR", "BOOT MANAGER", "QUICK CREDITS" };
+     font_draw(FONT_UI, page_names[S_page], x + 520, y + 34, 16, RGB(255, 220, 120));
+     if (S_page == 0)
+-        font_draw(FONT_UI, "THEME PERSONA PICKER - NO OS BOOTS FROM HERE",
++        font_draw(FONT_UI, "STAGES A BOOT INTENT - THE LINUX STAGE BOOTS IT",
+                   x + 700, y + 34, 16, RGB(255, 170, 90));
+     font_draw(FONT_UI, "STATUS: STANDBY  |  LINK: SECURE  |  L1/R1: PAGES",
+               x + ww - 520, y + 34, 16, RGB(160, 200, 220));
+@@ -539,9 +590,13 @@ static void nexus_draw(Win *w)
+ 
+     /* bottom data stream (page 1 draws its own richer footer) */
+     if (S_page != 1) {
++        char intent[96];
++        nexus_status_summary(nexus_data_dir(), intent, sizeof(intent));
+         gfx_round_rect(x + 20, y + hh - 70, ww - 40, 42, 8, RGBA(8, 16, 30, 230));
+-        font_draw(FONT_MONO, "DATA STREAM // KERNEL_NEXUS v3.7.1 | MEM_SCAN OK | SIMULATION LAYER ACTIVE | REAL BOOT CREDITS IN README",
+-                  x + 40, y + hh - 52, 15, RGB(80, 180, 200));
++        font_draw(FONT_MONO, "BOOT INTENT // ", x + 40, y + hh - 52, 15, RGB(80, 180, 200));
++        font_draw(FONT_MONO, intent,
++                  x + 40 + font_text_w(FONT_MONO, "BOOT INTENT // ", 15),
++                  y + hh - 52, 15, RGB(160, 220, 180));
+     }
+ 
+     /* page switching */
+@@ -556,26 +611,66 @@ static void nexus_draw(Win *w)
+     }
+ }
+ 
+-static void nexus_select_and_boot(void)
++/* The old instant re-theme, kept as pure cosmetic feedback behind
++ * Settings -> "Theme preview (cosmetic only)" (greapple-v2 Patch 2):
++ * delight preserved, honesty preserved - a persona is canvas state and
++ * never a claim that anything boots. */
++static void nexus_apply_persona_cosmetic(void)
+ {
+     switch (S_selected) {
+     case 0:
+         desktop_set_os_target(OS_TARGET_MACOS);
+-        desktop_toast("NEXUS \u2192 macOS Aqua Slate online (persona)");
++        desktop_toast("Theme preview: macOS Aqua Slate (cosmetic only)");
+         break;
+-    case 1: {
++    case 1:
+         desktop_set_windows_version(S_win_version);
+         desktop_set_os_target(OS_TARGET_WINDOWS);
+-        desktop_toast("NEXUS \u2192 %s Fluent persona online (theme only)",
++        desktop_toast("Theme preview: %s Fluent (cosmetic only)",
+                       desktop_windows_version_name(S_win_version));
+         break;
+-    }
+     case 2:
+         desktop_set_linux_persona(S_linux_flavor);
+         desktop_set_os_target(OS_TARGET_LINUX);
+-        desktop_toast("NEXUS \u2192 %s environment online (persona)",
++        desktop_toast("Theme preview: %s canvas (cosmetic only)",
+                       desktop_linux_persona_name(S_linux_flavor));
+         break;
+     }
+-    wm_close(WIN_NEXUS);
++}
++
++/* Stage A confirm (SM-01): write the boot intent, show exactly one of the
++ * spec status lines. The hub window stays open so the status is actually
++ * read; nothing boots here, ever. */
++static void nexus_confirm_selection(void)
++{
++    const char *target = NULL;
++    const char *flavor = NULL;
++    char slug[16];
++    switch (S_selected) {
++    case 0:  target = "macos";   break;
++    case 1:  target = "windows"; break;
++    default:
++        target = "linux";
++        psa_strcpy(slug, sizeof(slug), nexus_flavor_slug(S_linux_flavor));
++        flavor = slug;
++        break;
++    }
++
++    char status[96], detail[192];
++    int rc = nexus_stage_guarded(target, flavor, status, sizeof(status),
++                                 detail, sizeof(detail));
++    psa_strcpy(S_stage_status, sizeof(S_stage_status), status);
++    psa_strcpy(S_stage_detail, sizeof(S_stage_detail), detail);
++    S_stage_kind = (rc == 0) ? 1 : (rc == 1) ? 2 : 3;
++
++    if (rc == 0)
++        desktop_toast("STAGED: %s%s%s - the Linux stage dispatches it",
++                      target, flavor ? ":" : "", flavor ? flavor : "");
++    else if (rc == 1)
++        desktop_toast("SIMULATED: %s has no PS5 kernel staged", flavor);
++    else
++        desktop_toast("STAGE FAILED: %s", detail);
++
++    /* pure cosmetic feedback, only if the user asked for it in Settings */
++    if (g_settings.theme_preview)
++        nexus_apply_persona_cosmetic();
+ }
+diff --git a/src/app_settings.c b/src/app_settings.c
+index 0c775bf..d927a89 100755
+--- a/src/app_settings.c
++++ b/src/app_settings.c
+@@ -14,7 +14,7 @@ static void settings_draw(Win *w);
+ void app_settings_open(void)
+ {
+     if (!wm_find(WIN_SETTINGS))
+-        wm_open(WIN_SETTINGS, "System Settings", CHROME_MAC, 470, 130, 980, 700, settings_draw);
++        wm_open(WIN_SETTINGS, "System Settings", CHROME_MAC, 470, 90, 980, 820, settings_draw);
+     else
+         wm_raise(wm_find(WIN_SETTINGS));
+ }
+@@ -65,6 +65,32 @@ static void settings_draw(Win *w)
+     toggle_row(w, 604, "FPS Overlay", g_settings.fps ? "On" : "Off", &yy);
+     if (ui_pressed(604)) { g_settings.fps ^= 1; settings_save(); }
+ 
++    /* ---- NEXUS boot stage (greapple-v2 Patch 5): the static truth
++     * table. Same vocabulary as the NEXUS-OS docs; no feature may claim
++     * more than this. staged is not booted. ---- */
++    font_draw(FONT_BOLD, "NEXUS Boot Stage", w->x + 32, yy + 14, 22, g_theme.text_bright);
++    yy += 56;
++    {
++        static const char *truth[] = {
++            "macOS    PROVEN    bare metal upstream, FW 13.42",
++            "Linux    READY     chain L kexec (ps5-linux-loader)",
++            "Windows  RESEARCH  no public boot chain yet",
++            "audio / WiFi / BT / power  RESEARCH"
++        };
++        for (int i = 0; i < 4; i++) {
++            font_draw(FONT_MONO, truth[i], w->x + 48, yy + 8, 16,
++                      i < 3 ? (i == 0 ? RGB(140, 230, 150)
++                              : i == 1 ? RGB(120, 200, 240)
++                                       : RGB(230, 200, 140))
++                            : g_theme.text_dim);
++            yy += 30;
++        }
++    }
++    yy += 8;
++    toggle_row(w, 605, "Theme preview (cosmetic only)",
++               g_settings.theme_preview ? "On" : "Off", &yy);
++    if (ui_pressed(605)) { g_settings.theme_preview ^= 1; settings_save(); }
++
+     char p[128];
+     psa_snprintf(p, sizeof(p), "Settings persist to %s/settings.ini", PSA_DATA_DIR);
+     font_draw(FONT_UI, p, w->x + 32, w->y + w->h - 46, 15, g_theme.text_dim);
+diff --git a/src/app_terminal.c b/src/app_terminal.c
+index e215b0b..ac059ac 100755
+--- a/src/app_terminal.c
++++ b/src/app_terminal.c
+@@ -9,6 +9,7 @@
+ #include "desktop.h"
+ #include "sysinfo.h"
+ #include "common.h"
++#include "nexus_boot.h"
+ 
+ #define TERM_ROWS 28
+ #define TERM_COLS 96
+@@ -122,6 +123,29 @@ static void term_hackintosh_note(void)
+     term_push_line("");
+ }
+ 
++/* greapple-v2 Patch 4: show the staged boot intent + WHY the last
++ * Linux-stage run did (or did not) boot - straight from the selector's
++ * own boot-log.txt, so a dead console still tells the truth. */
++static void term_nexus_status(void)
++{
++    char sum[128];
++    nexus_status_summary(nexus_data_dir(), sum, sizeof(sum));
++    term_push_line("staged intent: ");
++    term_push_line(sum);
++    char log[1024];
++    if (nexus_read_last_status(nexus_data_dir(), log, sizeof(log)) == 0) {
++        term_push_line("last Linux-stage decisions (boot-log.txt):");
++        /* push each line of the tail individually */
++        char *save = NULL;
++        for (char *ln = strtok_r(log, "\n", &save); ln;
++             ln = strtok_r(NULL, "\n", &save))
++            term_push_line(ln);
++    } else {
++        term_push_line("no boot-log yet - the NEXUS Linux stage has not run");
++    }
++    term_push_line("");
++}
++
+ /* returns 1 if the command was handled locally (no popen) */
+ static int term_builtin(const char *cmd)
+ {
+@@ -131,6 +155,7 @@ static int term_builtin(const char *cmd)
+         term_push_line("  help          this text");
+         term_push_line("  fastfetch     system summary with apple art (alias: neofetch)");
+         term_push_line("  hackintosh    notes on real bare-metal macOS on PS5");
++        term_push_line("  nexus-status  staged boot intent + Linux-stage log");
+         term_push_line("  uptime        session uptime");
+         term_push_line("  clear         clear the scrollback");
+         term_push_line("Everything else runs through sh via popen().");
+@@ -140,6 +165,7 @@ static int term_builtin(const char *cmd)
+     if (!strncmp(cmd, "fastfetch", 9) && (!cmd[9] || cmd[9] == ' ')) { term_fastfetch(); return 1; }
+     if (!strncmp(cmd, "neofetch", 8) && (!cmd[8] || cmd[8] == ' ')) { term_fastfetch(); return 1; }
+     if (!strncmp(cmd, "hackintosh", 10) && (!cmd[10] || cmd[10] == ' ')) { term_hackintosh_note(); return 1; }
++    if (!strncmp(cmd, "nexus-status", 12) && (!cmd[12] || cmd[12] == ' ')) { term_nexus_status(); return 1; }
+     if (!strncmp(cmd, "uptime", 6) && (!cmd[6] || cmd[6] == ' ')) {
+         char up[32];
+         term_push_line(sysinfo_uptime_str(up, sizeof(up)));
+diff --git a/src/backend_dump.c b/src/backend_dump.c
+index 2c1609f..684df60 100755
+--- a/src/backend_dump.c
++++ b/src/backend_dump.c
+@@ -15,6 +15,7 @@
+ #include "gfx.h"
+ #include "osk.h"
+ #include "ui.h"
++#include "nexus_boot.h"
+ #define STB_IMAGE_WRITE_IMPLEMENTATION
+ #include "stb_image_write.h"
+ #include <time.h>
+@@ -246,3 +247,11 @@ void video_present(void) { /* framebuffer kept in memory; PNG via shot */ }
+ int video_should_close(void) { return S_should_close || g_quit_request; }
+ 
+ void video_shutdown(void) { }
++
++/* greapple-v2 Patch 3 (SM-05): the dump backend always runs where a shell
++ * exists (host CI / the Linux stage), so the shared lsblk walker is the
++ * whole story - Boot Camp shows the real block devices of this machine. */
++int backend_list_volumes(bootcamp_volume_cb cb, void *user)
++{
++    return nexus_lsblk_walk(cb, user);
++}
+diff --git a/src/backend_sdl2.c b/src/backend_sdl2.c
+index b2da169..10491c0 100755
+--- a/src/backend_sdl2.c
++++ b/src/backend_sdl2.c
+@@ -6,6 +6,7 @@
+  */
+ #include "common.h"
+ #include "gfx.h"
++#include "nexus_boot.h"
+ #include <SDL.h>
+ 
+ uint64_t g_vclock = 0;
+@@ -227,3 +228,34 @@ void video_shutdown(void)
+     S_surf = NULL;
+     SDL_Quit();
+ }
++
++/* ---- greapple-v2 Patch 3 (SM-05 "Boot Camp Volume Row") ----
++ * Two runtime contexts, decided at runtime - no build-time fork:
++ *   1. under the ps5-linux-loader guest (or any desktop Linux) a shell
++ *      exists: the shared lsblk walker returns the real block devices;
++ *   2. bare FW userland has no shell: lsblk yields nothing, so fall back
++ *      to stat-probing the visible roots (/mnt/usb0, /mnt/usb1, /data)
++ *      and flag each row LIMITED - "no block info in FW userland".
++ * Internal NVMe is never probed here: upstream blocks it on purpose. */
++static void fw_root_row(const char *alias, const char *path,
++                        bootcamp_volume_cb cb, void *user)
++{
++    VolumeInfo v;
++    memset(&v, 0, sizeof(v));
++    psa_strcpy(v.name, sizeof(v.name), alias);
++    psa_strcpy(v.mountpoint, sizeof(v.mountpoint), path);
++    psa_strcpy(v.size, sizeof(v.size), "?");
++    v.limited = 1;
++    v.mounted = file_exists(path);
++    if (v.mounted && cb) cb(&v, user);
++}
++
++int backend_list_volumes(bootcamp_volume_cb cb, void *user)
++{
++    int n = nexus_lsblk_walk(cb, user);       /* context 1: a shell exists */
++    if (n > 0) return n;
++    fw_root_row("usb0", "/mnt/usb0", cb, user);   /* context 2: bare FW */
++    fw_root_row("usb1", "/mnt/usb1", cb, user);
++    fw_root_row("data", "/data",     cb, user);
++    return file_exists("/mnt/usb0") + file_exists("/mnt/usb1") + file_exists("/data");
++}
+diff --git a/src/common.h b/src/common.h
+index 671f42d..d6fa088 100755
+--- a/src/common.h
++++ b/src/common.h
+@@ -105,4 +105,21 @@ void     video_present(void);
+ int      video_should_close(void);
+ void     video_shutdown(void);
+ 
++/* ---- real volume enumeration (greapple-v2 Patch 3, SM-05 "Boot Camp
++ * Volume Row"). Linux stage / host dump backend: parses lsblk. Bare PS5
++ * FW userland (no shell): lists the visible roots directly and flags the
++ * rows LIMITED. Rows feed Boot Camp; states map 1:1 to SM-05. ---- */
++typedef struct VolumeInfo {
++    char name[64];        /* block device basename, or root alias on FW  */
++    char fstype[32];      /* ext4, ntfs, apfs, ... ("" when unknown)     */
++    char label[64];
++    char size[16];        /* lsblk size string, e.g. "10G"               */
++    char mountpoint[128];
++    int  mounted;         /* mountpoint known                            */
++    int  internal_nvme;   /* the policy-locked internal SSD row          */
++    int  limited;         /* bare FW userland: no block info available   */
++} VolumeInfo;
++typedef void (*bootcamp_volume_cb)(const VolumeInfo *v, void *user);
++int backend_list_volumes(bootcamp_volume_cb cb, void *user);   /* returns row count */
++
+ #endif /* COMMON_H */
+diff --git a/src/nexus_boot.c b/src/nexus_boot.c
+new file mode 100644
+index 0000000..a774e08
+--- /dev/null
++++ b/src/nexus_boot.c
+@@ -0,0 +1,523 @@
++/* nexus_boot.c - one tiny JSON emitter + reader for the NEXUS boot intent.
++ *
++ * No dependencies, fixed schema, atomic rename. Embedded strings only
++ * (same style as the repo's embedded Liberation fonts); no dynamic
++ * allocation beyond stdio buffers. See nexus_boot.h for the contract.
++ */
++#include "nexus_boot.h"
++#include "common.h"          /* psa_snprintf / psa_strcpy / file_exists (core.c) */
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <stdarg.h>
++#include <time.h>
++#include <sys/stat.h>
++#include <errno.h>
++
++#ifdef _WIN32
++#include <direct.h>
++#include <io.h>
++#define N_MKDIR(p)    _mkdir(p)
++#define N_FSYNC(fh)   (_commit(_fileno(fh)) == 0)
++#else
++#include <unistd.h>
++#include <fcntl.h>
++#define N_MKDIR(p)    mkdir((p), 0755)
++#define N_FSYNC(fh)   (fsync(fileno(fh)) == 0)
++#endif
++
++/* ---------------------------------------------------------------- paths */
++
++const char *nexus_data_dir(void)
++{
++#ifdef __PS5__
++    return "/data";
++#else
++    const char *env = getenv("NEXUS_DATA_DIR");
++    return (env && env[0]) ? env : "./data";
++#endif
++}
++
++const char *nexus_preset_base(void)
++{
++#ifdef __PS5__
++    return "/mnt/usb0";
++#else
++    const char *env = getenv("NEXUS_PRESET_BASE");
++    return (env && env[0]) ? env : "./preset-fixture";
++#endif
++}
++
++static void path_append(char *out, size_t n, const char *a, const char *b)
++{
++    psa_snprintf(out, n, "%s/%s", a, b);
++}
++
++/* ------------------------------------------------------------ flavor table */
++
++/* Order matches the hub roster in app_nexus.c (top to bottom in the ice
++ * cream stack). Slugs match chainload-linux.sh exactly. */
++static const char *const S_flavors[] = {
++    "ubuntu", "fedora", "arch", "debian",
++    "cachyos", "nobara", "mint", "omarchy"
++};
++#define N_FLAVORS ((int)(sizeof(S_flavors) / sizeof(S_flavors[0])))
++
++int         nexus_flavor_count(void)            { return N_FLAVORS; }
++const char *nexus_flavor_slug(int idx)          { return (idx >= 0 && idx < N_FLAVORS) ? S_flavors[idx] : NULL; }
++
++int nexus_flavor_known(const char *slug)
++{
++    if (!slug || !slug[0]) return 0;
++    for (int i = 0; i < N_FLAVORS; i++)
++        if (!strcmp(slug, S_flavors[i])) return 1;
++    return 0;
++}
++
++int nexus_flavor_preset_present(const char *flavor)
++{
++    if (!nexus_flavor_known(flavor)) return 0;
++    char base[256], dir[512], kern[768];
++    psa_strcpy(base, sizeof(base), nexus_preset_base());
++    path_append(dir, sizeof(dir), base, "linux");
++    path_append(kern, sizeof(kern), dir, flavor);
++    path_append(dir, sizeof(dir), kern, "vmlinuz");
++    return file_exists(dir);   /* the same artifact chainload-linux.sh die()s on */
++}
++
++/* ------------------------------------------------------------------ time */
++
++/* Days from civil (Howard Hinnant's algorithm) - a portable timegm for the
++ * UTC "YYYY-MM-DD HH:MM:SS" stamps this module writes. */
++static long days_from_civil(long y, unsigned m, unsigned d)
++{
++    y -= m <= 2;
++    const long era = (y >= 0 ? y : y - 399) / 400;
++    const unsigned yoe = (unsigned)(y - era * 400);
++    const unsigned doy = (153u * (m + (m > 2 ? -3u : 9u)) + 2u) / 5u + d - 1u;
++    const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
++    return era * 146097L + (long)doe - 719468L;
++}
++
++static void iso8601_utc(char *out, size_t n)
++{
++    time_t t = time(NULL);
++    struct tm tmu;
++#ifdef _WIN32
++    gmtime_s(&tmu, &t);
++#else
++    gmtime_r(&t, &tmu);
++#endif
++    strftime(out, n, "%Y-%m-%d %H:%M:%S", &tmu);
++}
++
++static long utc_epoch(const char *s)
++{
++    int Y = 0, M = 0, D = 0, h = 0, m = 0, sec = 0;
++    if (sscanf(s, "%d-%d-%d %d:%d:%d", &Y, &M, &D, &h, &m, &sec) != 6) return -1;
++    if (M < 1 || M > 12 || D < 1 || D > 31) return -1;
++    return days_from_civil(Y, (unsigned)M, (unsigned)D) * 86400L
++           + h * 3600L + m * 60L + sec;
++}
++
++/* -------------------------------------------------------------- the writer */
++
++static void set_err(char *errbuf, size_t errlen, const char *fmt, ...)
++{
++    if (!errbuf || errlen == 0) return;
++    va_list ap;
++    va_start(ap, fmt);
++    vsnprintf(errbuf, errlen, fmt, ap);
++    va_end(ap);
++}
++
++static int ensure_nexus_dir(const char *data_dir, char *errbuf, size_t errlen)
++{
++    char p[512];
++    N_MKDIR(data_dir);                       /* EEXIST is fine */
++    path_append(p, sizeof(p), data_dir, "NEXUS");
++    if (N_MKDIR(p) != 0 && errno != EEXIST) {
++        set_err(errbuf, errlen, "cannot create %s (%s)", p, strerror(errno));
++        return -1;
++    }
++    return 0;
++}
++
++int nexus_write_select(const char *data_dir,
++                       const char *target, const char *flavor,
++                       char *errbuf, size_t errlen)
++{
++    if (errbuf && errlen) errbuf[0] = '\0';
++    if (!data_dir || !data_dir[0]) { set_err(errbuf, errlen, "no data dir"); return -1; }
++
++    /* ---- validate BEFORE touching disk: the reader must never see an
++     * intent this writer already knew was bad (SM-01: validation happens
++     * before any exec, and a failed stage leaves the previous intent). ---- */
++    if (!target || !target[0]) { set_err(errbuf, errlen, "empty target"); return -1; }
++    int is_linux = !strcmp(target, "linux");
++    if (strcmp(target, "macos") && strcmp(target, "windows") && !is_linux) {
++        set_err(errbuf, errlen, "unknown target '%s' (macos|windows|linux)", target);
++        return -1;
++    }
++    if (is_linux) {
++        if (!flavor || !flavor[0]) {
++            set_err(errbuf, errlen, "target=linux needs a flavor");
++            return -1;
++        }
++        if (!nexus_flavor_known(flavor)) {
++            set_err(errbuf, errlen, "unknown flavor '%s'", flavor);
++            return -1;
++        }
++    } else if (flavor && flavor[0]) {
++        set_err(errbuf, errlen, "flavor only valid with target=linux");
++        return -1;
++    }
++
++    if (ensure_nexus_dir(data_dir, errbuf, errlen) != 0) return -1;
++
++    char dir[512], tmp[768], dst[768];
++    path_append(dir, sizeof(dir), data_dir, "NEXUS");
++    path_append(tmp, sizeof(tmp), dir, "boot-select.json.tmp");
++    path_append(dst, sizeof(dst), dir, "boot-select.json");
++
++    FILE *fh = fopen(tmp, "w");
++    if (!fh) {
++        set_err(errbuf, errlen, "cannot write %s (%s) - check /data writable",
++                tmp, strerror(errno));
++        return -1;
++    }
++    char stamp[32];
++    iso8601_utc(stamp, sizeof(stamp));
++    if (is_linux)
++        fprintf(fh, "{\"version\":%d,\"target\":\"%s\",\"flavor\":\"%s\","
++                    "\"staged_at\":\"%s\",\"staged_by\":\"%s\"}\n",
++                NEXUS_SELECT_VERSION, target, flavor, stamp, NEXUS_STAGED_BY);
++    else
++        fprintf(fh, "{\"version\":%d,\"target\":\"%s\","
++                    "\"staged_at\":\"%s\",\"staged_by\":\"%s\"}\n",
++                NEXUS_SELECT_VERSION, target, stamp, NEXUS_STAGED_BY);
++
++    /* flush + fsync BEFORE rename: after a crash the .tmp may survive, but
++     * the staged intent itself is never half-written. */
++    if (fflush(fh) != 0 || !N_FSYNC(fh)) {
++        set_err(errbuf, errlen, "flush failed for %s (%s)", tmp, strerror(errno));
++        fclose(fh);
++        remove(tmp);
++        return -1;
++    }
++    fclose(fh);
++
++    if (rename(tmp, dst) != 0) {
++        set_err(errbuf, errlen, "rename failed (%s) - check /data writable",
++                strerror(errno));
++        remove(tmp);
++        return -1;
++    }
++#ifndef _WIN32
++    /* best-effort directory fsync so the rename itself survives power loss */
++    int dfd = open(dir, O_RDONLY | O_DIRECTORY);
++    if (dfd >= 0) { fsync(dfd); close(dfd); }
++#endif
++    return 0;
++}
++
++/* -------------------------------------------------------------- the reader */
++
++/* Minimal extraction of "key":value from our fixed schema. Finds the key
++ * anywhere (writers may order keys); handles string values and bare
++ * numbers ("version":1). Returns 0 on success. */
++static int json_str_value(const char *json, const char *key,
++                          char *out, size_t outlen)
++{
++    char pat[48];
++    psa_snprintf(pat, sizeof(pat), "\"%s\"", key);
++    const char *k = strstr(json, pat);
++    if (!k) return -1;
++    k = strchr(k + strlen(pat), ':');
++    if (!k) return -1;
++    k++;
++    while (*k == ' ' || *k == '\t') k++;
++    if (*k == '"') {                         /* string value */
++        k++;
++        size_t n = 0;
++        while (*k && *k != '"') {
++            char c = *k++;
++            if (c == '\\' && *k) c = *k++;   /* no fancy escapes in our schema */
++            if (n + 1 < outlen) out[n++] = c;
++        }
++        out[n] = '\0';
++        return (*k == '"') ? 0 : -1;
++    }
++    if (*k == '-' || (*k >= '0' && *k <= '9')) {   /* bare number */
++        size_t n = 0;
++        while (*k && *k != ',' && *k != '}' && *k != ' ') {
++            if (n + 1 < outlen) out[n++] = *k;
++            k++;
++        }
++        out[n] = '\0';
++        return 0;
++    }
++    return -1;
++}
++
++int nexus_read_staged(const char *data_dir, NexusStaged *out,
++                      char *errbuf, size_t errlen)
++{
++    if (errbuf && errlen) errbuf[0] = '\0';
++    memset(out, 0, sizeof(*out));
++    char path[768], dir[512];
++    path_append(dir, sizeof(dir), data_dir ? data_dir : "", "NEXUS");
++    path_append(path, sizeof(path), dir, "boot-select.json");
++
++    FILE *fh = fopen(path, "r");
++    if (!fh) return 1;                       /* nothing staged - normal */
++    char json[1024];
++    size_t n = fread(json, 1, sizeof(json) - 1, fh);
++    fclose(fh);
++    json[n] = '\0';
++
++    out->present = 1;
++    char ver[16] = "";
++    if (json_str_value(json, "version", ver, sizeof(ver)) == 0)
++        out->version_ok = (atoi(ver) == NEXUS_SELECT_VERSION);
++    else
++        out->version_ok = 0;                 /* missing version = not ours */
++
++    if (json_str_value(json, "target", out->target, sizeof(out->target)) != 0) {
++        set_err(errbuf, errlen, "staged intent has no target field");
++        return -1;
++    }
++    json_str_value(json, "flavor", out->flavor, sizeof(out->flavor));
++    json_str_value(json, "staged_at", out->staged_at, sizeof(out->staged_at));
++
++    out->target_ok = !strcmp(out->target, "macos")
++                  || !strcmp(out->target, "windows")
++                  || !strcmp(out->target, "linux");
++    int is_linux = !strcmp(out->target, "linux");
++    out->flavor_ok = is_linux ? nexus_flavor_known(out->flavor)
++                              : (out->flavor[0] == '\0');
++
++    out->age_s = -1;
++    long ep = utc_epoch(out->staged_at);
++    if (ep >= 0) out->age_s = (long)time(NULL) - ep;
++    return 0;
++}
++
++int nexus_read_last_status(const char *data_dir, char *out, size_t outlen)
++{
++    if (outlen) out[0] = '\0';
++    char path[768], dir[512];
++    path_append(dir, sizeof(dir), data_dir ? data_dir : "", "NEXUS");
++    path_append(path, sizeof(path), dir, "boot-log.txt");
++
++    FILE *fh = fopen(path, "r");
++    if (!fh) return -1;
++
++    /* ring of the last 8 lines */
++    char ring[8][192];
++    int head = 0, count = 0;
++    char line[512];
++    while (fgets(line, sizeof(line), fh)) {
++        size_t l = strlen(line);
++        while (l && (line[l - 1] == '\n' || line[l - 1] == '\r')) line[--l] = '\0';
++        psa_strcpy(ring[head], sizeof(ring[head]), line);
++        head = (head + 1) % 8;
++        if (count < 8) count++;
++    }
++    fclose(fh);
++
++    size_t used = 0;
++    for (int i = 0; i < count; i++) {
++        const char *s = ring[(head - count + i + 16) % 8];
++        size_t sl = strlen(s);
++        if (used + sl + 2 >= outlen) break;
++        if (i) out[used++] = '\n';
++        memcpy(out + used, s, sl + 1);
++        used += sl;
++    }
++    return 0;
++}
++
++void nexus_status_summary(const char *data_dir, char *out, size_t outlen)
++{
++    NexusStaged st;
++    char err[128];
++    int rc = nexus_read_staged(data_dir, &st, err, sizeof(err));
++    if (rc == 1) { psa_strcpy(out, outlen, "no intent staged"); return; }
++    if (rc < 0)  { psa_snprintf(out, outlen, "unreadable intent: %s", err); return; }
++    if (!st.version_ok) {
++        psa_snprintf(out, outlen, "SCHEMA MISMATCH - staged intent is not version %d",
++                     NEXUS_SELECT_VERSION);
++        return;
++    }
++    if (!st.target_ok || !st.flavor_ok) {
++        psa_snprintf(out, outlen, "INVALID intent staged (target=%s flavor=%s)",
++                     st.target, st.flavor);
++        return;
++    }
++    if (st.flavor[0])
++        psa_snprintf(out, outlen, "target=%s flavor=%s age=%lds",
++                     st.target, st.flavor, st.age_s);
++    else
++        psa_snprintf(out, outlen, "target=%s age=%lds", st.target, st.age_s);
++}
++
++/* ------------------------------------------------ lsblk volume enumeration
++ * (greapple-v2 Patch 3 - SM-05 "Boot Camp Volume Row", DETECTED state) */
++
++/* lsblk raw mode escapes specials inside values as \xNN (space -> \x20).
++ * Decode in place so labels like "My\x20Disk" read naturally. */
++static void decode_escapes(char *s)
++{
++    char *w = s;
++    while (*s) {
++        if (s[0] == '\\' && s[1] == 'x' &&
++            ((s[2] >= '0' && s[2] <= '9') || (s[2] >= 'a' && s[2] <= 'f')) &&
++            ((s[3] >= '0' && s[3] <= '9') || (s[3] >= 'a' && s[3] <= 'f'))) {
++            char hex[3] = { s[2], s[3], 0 };
++            *w++ = (char)strtol(hex, NULL, 16);
++            s += 4;
++        } else {
++            *w++ = *s++;
++        }
++    }
++    *w = '\0';
++}
++
++static int looks_like_size(const char *s)
++{
++    if (!s || !(*s >= '0' && *s <= '9')) return 0;
++    int dots = 0;
++    for (; *s; s++) {
++        if (*s >= '0' && *s <= '9') continue;
++        if (*s == '.' && !dots) { dots = 1; continue; }
++        break;
++    }
++    if (!*s) return 0;                        /* bare number is not a size */
++    switch (*s) {                             /* optional binary unit */
++    case 'K': case 'M': case 'G': case 'T': case 'P': case 'E':
++        return s[1] == '\0';
++    case 'B':
++        return s[1] == '\0';
++    case 'i':                                 /* lsblk "KiB" style is rare; accept */
++        return s[1] == 'B' && s[2] == '\0';
++    default:
++        return 0;
++    }
++}
++
++int nexus_parse_lsblk_line(const char *line, VolumeInfo *out)
++{
++    memset(out, 0, sizeof(*out));
++    while (*line == ' ' || *line == '\t') line++;
++    if (!*line) return 0;
++
++    /* tokenize on whitespace runs (raw values carry no literal spaces) */
++    char toks[8][128];
++    int ntok = 0;
++    const char *p = line;
++    while (*p && ntok < 8) {
++        while (*p == ' ' || *p == '\t') p++;
++        if (!*p) break;
++        int i = 0;
++        while (*p && *p != ' ' && *p != '\t' && i < 127) toks[ntok][i++] = *p++;
++        toks[ntok][i] = '\0';
++        ntok++;
++    }
++    if (!ntok) return 0;
++
++    psa_strcpy(out->name, sizeof(out->name), toks[0]);
++    if (!strncmp(out->name, "nvme0n1", 7))    /* internal SSD + its parts */
++        out->internal_nvme = 1;
++
++    /* mountpoint: trailing token starting with '/' */
++    int core_end = ntok;
++    if (ntok >= 2 && toks[ntok - 1][0] == '/') {
++        psa_strcpy(out->mountpoint, sizeof(out->mountpoint), toks[ntok - 1]);
++        decode_escapes(out->mountpoint);
++        out->mounted = 1;
++        core_end = ntok - 1;
++    }
++
++    /* size: last remaining core token that looks like one */
++    int core_len = core_end - 1;              /* tokens after NAME */
++    if (core_len > 0 && looks_like_size(toks[core_end - 1])) {
++        psa_strcpy(out->size, sizeof(out->size), toks[core_end - 1]);
++        core_len--;
++        if (core_len > 0) {                   /* fstype, then optional label */
++            psa_strcpy(out->fstype, sizeof(out->fstype), toks[1]);
++            decode_escapes(out->fstype);
++            if (core_len > 1) {
++                psa_strcpy(out->label, sizeof(out->label), toks[2]);
++                decode_escapes(out->label);
++            }
++        }
++    }
++    return 1;
++}
++
++int nexus_lsblk_walk(bootcamp_volume_cb cb, void *user)
++{
++    FILE *f = popen("lsblk -rno NAME,FSTYPE,LABEL,SIZE,MOUNTPOINT 2>/dev/null", "r");
++    if (!f) return 0;                         /* no shell / no lsblk: 0 rows */
++    char line[512];
++    int count = 0;
++    VolumeInfo v;
++    while (fgets(line, sizeof(line), f)) {
++        size_t l = strlen(line);
++        while (l && (line[l - 1] == '\n' || line[l - 1] == '\r')) line[--l] = '\0';
++        if (nexus_parse_lsblk_line(line, &v)) {
++            count++;
++            if (cb) cb(&v, user);
++        }
++    }
++    pclose(f);
++    return count;
++}
++
++/* -------------------------------------------------- guarded stage (SM-01) */
++
++int nexus_stage_guarded(const char *target, const char *flavor,
++                        char *status, size_t statusn,
++                        char *detail, size_t detailn)
++{
++    if (status && statusn) status[0] = '\0';
++    if (detail && detailn) detail[0] = '\0';
++
++    /* Linux flavor with no PS5 kernel preset: the Linux stage would die on
++     * the missing artifact (chainload-linux.sh die "kernel not found").
++     * Say SIMULATED now and do not stage a doomed intent. */
++    if (flavor && flavor[0] && !nexus_flavor_preset_present(flavor)) {
++        psa_strcpy(status, statusn,
++                   "SIMULATED \xc2\xb7 this flavor has no PS5 kernel staged");
++        psa_snprintf(detail, detailn,
++                     "flavor %s: put its PS5-built kernel on the boot USB "
++                     "(<base>/linux/%s/vmlinuz) to make it stageable",
++                     flavor, flavor);
++        return 1;
++    }
++
++    char err[192];
++    if (nexus_write_select(nexus_data_dir(), target, flavor,
++                           err, sizeof(err)) != 0) {
++        psa_strcpy(status, statusn,
++                   "STAGE FAILED \xc2\xb7 check /data writable");
++        psa_strcpy(detail, detailn, err);
++        return -1;
++    }
++
++    psa_strcpy(status, statusn,
++               "STAGED \xc2\xb7 will boot on next Linux-stage run");
++    if (!strcmp(target, "macos"))
++        psa_strcpy(detail, detailn,
++                   "chain M \xc2\xb7 PROVEN upstream (FW 13.42, "
++                   "rodri0x/ps5-hackintosh) \xc2\xb7 stage1 on boot USB required");
++    else if (!strcmp(target, "windows"))
++        psa_strcpy(detail, detailn,
++                   "chain W \xc2\xb7 RESEARCH - no public Windows boot chain yet");
++    else
++        psa_snprintf(detail, detailn,
++                     "chain L \xc2\xb7 READY \xc2\xb7 flavor %s "
++                     "(kernel from the boot USB preset table)", flavor);
++    return 0;
++}
+diff --git a/src/nexus_boot.h b/src/nexus_boot.h
+new file mode 100644
+index 0000000..87244f3
+--- /dev/null
++++ b/src/nexus_boot.h
+@@ -0,0 +1,110 @@
++/* nexus_boot.h - NEXUS boot-intent staging (the greapple-v2 contract)
++ *
++ * PS5GreenApple v2.1 turns the NEXUS hub into Stage A of the real boot flow:
++ * the hub writes /data/NEXUS/boot-select.json (the "boot intent"); the NEXUS
++ * Linux stage reads it (bootchain/kexec/nexus-boot-select.sh) and dispatches.
++ * The app itself never boots anything - it has no kernel access, and that
++ * stays true. See nexus-hub/greapple-v2/README.md (NEXUS-OS) for the spec
++ * and agents/state-machines.json SM-01 "Boot Intent Contract" for the
++ * machine this code implements.
++ *
++ * Schema (fixed, version 1 - three writers, one reader):
++ *   {"version":1,"target":"macos|windows|linux","flavor":"arch|ubuntu|...",
++ *    "staged_at":"YYYY-MM-DD HH:MM:SS","staged_by":"PS5GreenApple v2.1"}
++ * "flavor" is only valid (and only present) with target "linux".
++ */
++#ifndef NEXUS_BOOT_H
++#define NEXUS_BOOT_H
++#include <stddef.h>
++#include "common.h"
++
++#define NEXUS_SELECT_VERSION 1
++#define NEXUS_STAGED_BY      "PS5GreenApple v2.1"
++
++/* Root that both stages see. PS5: the shared console storage. Host: a local
++ * sandbox dir (env NEXUS_DATA_DIR overrides - used by the shot scripts and
++ * the unit tests; never honored on PS5). */
++const char *nexus_data_dir(void);
++
++/* Preset base = the boot USB root holding PS5-built kernels, exactly the
++ * table chainload-linux.sh consumes: <base>/linux/<flavor>/vmlinuz.
++ * PS5: /mnt/usb0 (the Linux-stage convention). Host: ./preset-fixture
++ * (env NEXUS_PRESET_BASE overrides), seeded by `make shots`. */
++const char *nexus_preset_base(void);
++
++/* ---- the 8-flavor roster. MUST stay in sync with
++ * bootchain/kexec/chainload-linux.sh (and the hub UI order in
++ * app_nexus.c: Ubuntu, Fedora, Arch, Debian, CachyOS, Nobara, Mint,
++ * Omarchy). One source of truth here so both apps agree. ---- */
++int         nexus_flavor_count(void);
++const char *nexus_flavor_slug(int idx);      /* 0..7 -> "ubuntu".. */
++int         nexus_flavor_known(const char *slug);
++int         nexus_flavor_preset_present(const char *flavor);
++            /* file_exists(<base>/linux/<flavor>/vmlinuz); the same artifact
++             * chainload-linux.sh die()s on when missing. */
++
++/* Write <data_dir>/NEXUS/boot-select.json atomically:
++ * write boot-select.json.tmp -> fflush -> fsync -> rename. A hub crash
++ * mid-write can therefore never leave a half-written intent (SM-01
++ * invariant 1), and the previous staged intent survives a failed stage.
++ * Returns 0 on success; on failure returns nonzero and fills errbuf. */
++int nexus_write_select(const char *data_dir,
++                       const char *target, const char *flavor,
++                       char *errbuf, size_t errlen);
++
++/* Parsed view of the currently staged intent (if any). */
++typedef struct NexusStaged {
++    int  present;                /* file exists */
++    int  version_ok;             /* version field == NEXUS_SELECT_VERSION */
++    int  target_ok;              /* macos | windows | linux */
++    int  flavor_ok;              /* non-linux: no flavor needed; linux: known */
++    char target[16];
++    char flavor[24];
++    char staged_at[32];          /* raw "YYYY-MM-DD HH:MM:SS" (UTC) */
++    long age_s;                  /* seconds since staged_at (F-C: surfaced) */
++} NexusStaged;
++
++/* Returns 0 when a staged intent was read (present==1), 1 when none is
++ * staged, <0 on unreadable/corrupt file (errbuf carries the reason).
++ * Never executes anything - read-only, like the status line should be. */
++int nexus_read_staged(const char *data_dir, NexusStaged *out,
++                      char *errbuf, size_t errlen);
++
++/* Tail of <data_dir>/NEXUS/boot-log.txt (written by the Linux-stage
++ * selector): the last 8 lines, '\n'-joined, so users can see WHY a boot
++ * did not happen. Returns 0 with content, nonzero when no log exists. */
++int nexus_read_last_status(const char *data_dir, char *out, size_t outlen);
++
++/* One-line hub summary: "target=linux flavor=omarchy age=34s" or
++ * "no intent staged". Used by the NEXUS status line and the terminal
++ * `nexus-status` builtin. */
++void nexus_status_summary(const char *data_dir, char *out, size_t outlen);
++
++/* ---- real volume enumeration (greapple-v2 Patch 3, SM-05) ----
++ * Shared lsblk walker: runs `lsblk -rno NAME,FSTYPE,LABEL,SIZE,MOUNTPOINT`
++ * through popen (Linux stage / host), decodes lsblk's \xNN escapes, and
++ * calls cb per row. Returns the row count (0 also when lsblk is absent).
++ * Each backend decides its own fallback: the dump/host backend has none,
++ * the PS5 SDL2 backend falls back to the bare-FW LIMITED roots. */
++int  nexus_lsblk_walk(bootcamp_volume_cb cb, void *user);
++
++/* Parse one raw lsblk line (positional fill: NAME always present, fields
++ * at the end may be missing, MOUNTPOINT is the trailing "/..." token).
++ * Returns 1 when a device row was extracted. Unit-tested. */
++int  nexus_parse_lsblk_line(const char *line, VolumeInfo *out);
++
++/* ---- guarded stage: the SM-01 writer path with the app status lines ----
++ * One implementation so the NEXUS hub and Boot Camp can never drift apart
++ * in what they tell the user. Fills:
++ *   status - exactly one of the spec lines:
++ *     "STAGED · will boot on next Linux-stage run"
++ *     "SIMULATED · this flavor has no PS5 kernel staged"
++ *     "STAGE FAILED · check /data writable"
++ *   detail - one honest follow-up line (chain note, or the write error).
++ * Returns 0 = intent staged, 1 = SIMULATED (nothing written), -1 = failed
++ * (nothing written; the previous intent survives untouched). */
++int nexus_stage_guarded(const char *target, const char *flavor,
++                        char *status, size_t statusn,
++                        char *detail, size_t detailn);
++
++#endif /* NEXUS_BOOT_H */
+diff --git a/src/settings.c b/src/settings.c
+index e87fd18..62c6c3c 100755
+--- a/src/settings.c
++++ b/src/settings.c
+@@ -1,7 +1,7 @@
+ /* settings.c - tiny key=value ini persistence */
+ #include "settings.h"
+ 
+-Settings g_settings = { 0, 0, 0, 0, 0 };
++Settings g_settings = { 0, 0, 0, 0, 0, 0 };
+ 
+ static void parse_line(char *line)
+ {
+@@ -15,6 +15,7 @@ static void parse_line(char *line)
+     else if (!strcmp(k, "clock24"))   g_settings.clock24 = val;
+     else if (!strcmp(k, "seconds"))   g_settings.seconds = val;
+     else if (!strcmp(k, "fps"))       g_settings.fps = val;
++    else if (!strcmp(k, "theme_preview")) g_settings.theme_preview = val ? 1 : 0;
+ }
+ 
+ void settings_load(void)
+@@ -47,6 +48,7 @@ void settings_save(void)
+     fprintf(f, "clock24=%d\n", g_settings.clock24);
+     fprintf(f, "seconds=%d\n", g_settings.seconds);
+     fprintf(f, "fps=%d\n", g_settings.fps);
++    fprintf(f, "theme_preview=%d\n", g_settings.theme_preview);
+     fclose(f);
+ }
+ 
+diff --git a/src/settings.h b/src/settings.h
+index a867f6b..316ef89 100755
+--- a/src/settings.h
++++ b/src/settings.h
+@@ -9,6 +9,9 @@ typedef struct Settings {
+     int clock24;     /* 24h clock */
+     int seconds;     /* show seconds */
+     int fps;         /* fps overlay */
++    int theme_preview; /* NEXUS persona re-theme as COSMETIC feedback after
++                        * staging a boot intent (default off: staging is
++                        * information, not decoration - greapple-v2 Patch 2/5) */
+ } Settings;
+ 
+ extern Settings g_settings;
+diff --git a/tests/test_nexus_boot.c b/tests/test_nexus_boot.c
+new file mode 100644
+index 0000000..3dd5692
+--- /dev/null
++++ b/tests/test_nexus_boot.c
+@@ -0,0 +1,206 @@
++/* tests/test_nexus_boot.c - host unit tests for the NEXUS boot-intent writer.
++ *
++ * Definition of done (nexus-hub/greapple-v2/README.md):
++ *   - valid write
++ *   - atomic rename survives a simulated crash (kill during write)
++ *   - unwritable dir -> error surfaced
++ * Plus the SM-01 contract edges: unknown target, linux-without-flavor,
++ * unknown flavor, previous intent survives a failed stage, reader
++ * round-trip, boot-log tail, schema-version mismatch.
++ *
++ * Build & run:  make test-nexus   (host only; exit 0 = all pass)
++ */
++#include "../src/nexus_boot.h"
++#include "../src/common.h"
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
++#include <errno.h>
++
++static int S_failed = 0;
++
++/* core.c's now_ms() reads the backend-provided virtual clock; the unit
++ * test runs headless with no backend, so it owns the symbol. */
++uint64_t g_vclock = 0;
++
++#define CHECK(cond, name)                                                     \
++    do {                                                                      \
++        if (cond) printf("PASS  %s\n", name);                                 \
++        else     { printf("FAIL  %s\n", name); S_failed = 1; }                \
++    } while (0)
++
++/* data_dir pointing at an existing REGULAR file: every mkdir/open inside
++ * fails with ENOTDIR - even when the tests run as root. Deterministic. */
++static void make_blocked_dir_fixture(const char *base, char *out, size_t n)
++{
++    psa_snprintf(out, n, "%s/blocked", base);
++    FILE *f = fopen(out, "w");
++    if (f) { fputs("this file blocks the data dir on purpose\n", f); fclose(f); }
++}
++
++int main(void)
++{
++    char base[] = "./nexus-test-tmp";
++    char dir[512], p[768], err[256];
++
++    system("rm -rf ./nexus-test-tmp");
++    ensure_dir(base);
++
++    /* ---- 1. valid write: linux + flavor ---- */
++    err[0] = 0;
++    int rc = nexus_write_select(base, "linux", "omarchy", err, sizeof(err));
++    CHECK(rc == 0 && err[0] == '\0', "valid write returns 0, no error");
++    psa_snprintf(p, sizeof(p), "%s/NEXUS/boot-select.json", base);
++    CHECK(file_exists(p), "boot-select.json exists");
++    psa_snprintf(p, sizeof(p), "%s/NEXUS/boot-select.json.tmp", base);
++    CHECK(!file_exists(p), "no .tmp leftover after rename");
++    {
++        psa_snprintf(p, sizeof(p), "%s/NEXUS/boot-select.json", base);
++        FILE *f = fopen(p, "r");
++        char json[1024] = "";
++        if (f) { size_t n = fread(json, 1, sizeof(json) - 1, f); json[n] = 0; fclose(f); }
++        CHECK(strstr(json, "\"version\":1") != NULL, "schema version present");
++        CHECK(strstr(json, "\"target\":\"linux\"") != NULL, "target written");
++        CHECK(strstr(json, "\"flavor\":\"omarchy\"") != NULL, "flavor written");
++        CHECK(strstr(json, "\"staged_at\":\"") != NULL, "staged_at written");
++        CHECK(strstr(json, "\"staged_by\":\"" NEXUS_STAGED_BY "\"") != NULL,
++              "staged_by written");
++    }
++
++    /* ---- 2. reader round-trip ---- */
++    {
++        NexusStaged st; char rerr[128];
++        rc = nexus_read_staged(base, &st, rerr, sizeof(rerr));
++        CHECK(rc == 0 && st.present, "reader sees staged intent");
++        CHECK(st.version_ok && st.target_ok && st.flavor_ok, "reader validates fields");
++        CHECK(!strcmp(st.target, "linux") && !strcmp(st.flavor, "omarchy"),
++              "reader round-trips target+flavor");
++        CHECK(st.age_s >= -1 && st.age_s < 3600, "age is sane");
++        char sum[128];
++        nexus_status_summary(base, sum, sizeof(sum));
++        CHECK(strstr(sum, "target=linux") != NULL && strstr(sum, "flavor=omarchy") != NULL,
++              "status summary line");
++    }
++
++    /* ---- 3. simulated crash: .tmp left behind, staged intent intact,
++     *        then a new stage succeeds and cleans up ---- */
++    {
++        psa_snprintf(dir, sizeof(dir), "%s/NEXUS/boot-select.json.tmp", base);
++        FILE *f = fopen(dir, "w");           /* the half-written tmp */
++        if (f) { fprintf(f, "{\"version\":1,\"target\":\"li"); fclose(f); }
++
++        NexusStaged st; char rerr[128];
++        nexus_read_staged(base, &st, rerr, sizeof(rerr));
++        CHECK(st.present && !strcmp(st.target, "linux"),
++              "crash mid-write: previous intent still readable (atomic rename)");
++
++        err[0] = 0;
++        rc = nexus_write_select(base, "macos", NULL, err, sizeof(err));
++        CHECK(rc == 0, "re-stage after simulated crash succeeds");
++        CHECK(!file_exists(dir), "re-stage removes the stale .tmp");
++        NexusStaged st2;
++        nexus_read_staged(base, &st2, rerr, sizeof(rerr));
++        CHECK(!strcmp(st2.target, "macos") && st2.flavor[0] == '\0',
++              "last-staged-wins: new intent replaced old (no flavor for macos)");
++    }
++
++    /* ---- 4. contract edges: writer rejects what the reader would die on ---- */
++    {
++        err[0] = 0;
++        rc = nexus_write_select(base, "plan9", NULL, err, sizeof(err));
++        CHECK(rc != 0 && strstr(err, "unknown target") != NULL, "unknown target rejected");
++
++        err[0] = 0;
++        rc = nexus_write_select(base, "linux", NULL, err, sizeof(err));
++        CHECK(rc != 0 && strstr(err, "needs a flavor") != NULL, "linux-without-flavor rejected");
++
++        err[0] = 0;
++        rc = nexus_write_select(base, "linux", "gentoo", err, sizeof(err));
++        CHECK(rc != 0 && strstr(err, "unknown flavor") != NULL, "unknown flavor rejected");
++
++        err[0] = 0;
++        rc = nexus_write_select(base, "macos", "arch", err, sizeof(err));
++        CHECK(rc != 0 && strstr(err, "flavor only valid") != NULL, "flavor on non-linux rejected");
++
++        NexusStaged st; char rerr[128];
++        nexus_read_staged(base, &st, rerr, sizeof(rerr));
++        CHECK(st.present && !strcmp(st.target, "macos"),
++              "rejected stages never touched the staged intent");
++    }
++
++    /* ---- 5. unwritable dir -> error surfaced ---- */
++    {
++        char blocked[512];
++        make_blocked_dir_fixture(base, blocked, sizeof(blocked));
++        err[0] = 0;
++        rc = nexus_write_select(blocked, "linux", "arch", err, sizeof(err));
++        CHECK(rc != 0 && err[0] != '\0', "unwritable dir returns error text");
++    }
++
++    /* ---- 6. boot-log tail ---- */
++    {
++        psa_snprintf(dir, sizeof(dir), "%s/NEXUS/boot-log.txt", base);
++        FILE *f = fopen(dir, "w");
++        for (int i = 1; i <= 12; i++)
++            fprintf(f, "2026-11-09 12:%02d:00 dispatch: line %d\n", i, i);
++        fclose(f);
++        char tail[1024];
++        rc = nexus_read_last_status(base, tail, sizeof(tail));
++        CHECK(rc == 0, "boot-log tail readable");
++        CHECK(strstr(tail, "line 12") != NULL && strstr(tail, "line 4") == NULL,
++              "tail keeps the last 8 lines only");
++    }
++
++    /* ---- 7. schema-version mismatch surfaced, not silently accepted ---- */
++    {
++        psa_snprintf(dir, sizeof(dir), "%s/NEXUS/boot-select.json", base);
++        FILE *f = fopen(dir, "w");
++        if (f) { fprintf(f, "{\"version\":2,\"target\":\"macos\",\"staged_at\":\"x\"}\n"); fclose(f); }
++        NexusStaged st; char rerr[128]; char sum[160];
++        rc = nexus_read_staged(base, &st, rerr, sizeof(rerr));
++        CHECK(rc == 0 && st.present && !st.version_ok, "future schema flagged version_ok=0");
++        nexus_status_summary(base, sum, sizeof(sum));
++        CHECK(strstr(sum, "SCHEMA MISMATCH") != NULL, "summary says SCHEMA MISMATCH (F-A)");
++    }
++
++    /* ---- 8. flavor preset table mirrors chainload-linux.sh ---- */
++    {
++        CHECK(nexus_flavor_count() == 8, "8 flavors (hub roster)");
++        CHECK(nexus_flavor_known("omarchy") && !nexus_flavor_known("gentoo"),
++              "flavor whitelist matches chain L");
++        /* isolation: point the preset base at an empty dir FIRST - the
++         * workspace may legitimately contain `make shots`'s fixture. */
++        setenv("NEXUS_PRESET_BASE", "./preset-fixture-test-empty", 1);
++        CHECK(!nexus_flavor_preset_present("omarchy"), "no preset before fixture");
++        system("mkdir -p ./preset-fixture-test/linux/omarchy && : > ./preset-fixture-test/linux/omarchy/vmlinuz");
++        setenv("NEXUS_PRESET_BASE", "./preset-fixture-test", 1);
++        CHECK(nexus_flavor_preset_present("omarchy"), "preset found at <base>/linux/<flavor>/vmlinuz");
++        CHECK(!nexus_flavor_preset_present("arch"), "missing preset reported for other flavor");
++        unsetenv("NEXUS_PRESET_BASE");
++    }
++
++    /* ---- 9. lsblk line parser (positional fill, missing fields) ---- */
++    {
++        VolumeInfo v;
++        CHECK(nexus_parse_lsblk_line("zram0   0B ", &v)
++              && !strcmp(v.name, "zram0") && !strcmp(v.size, "0B")
++              && !v.mounted && !v.internal_nvme,
++              "lsblk: name+size only");
++        CHECK(nexus_parse_lsblk_line("vda1 ext4 10G /", &v)
++              && !strcmp(v.fstype, "ext4") && !v.label[0]
++              && !strcmp(v.size, "10G") && v.mounted
++              && !strcmp(v.mountpoint, "/"),
++              "lsblk: fstype+size+mount, no label");
++        CHECK(nexus_parse_lsblk_line("sda1 ntfs Win\\x20SSD 931G /mnt/win", &v)
++              && !strcmp(v.fstype, "ntfs") && !strcmp(v.label, "Win SSD")
++              && !strcmp(v.mountpoint, "/mnt/win"),
++              "lsblk: \\x20 escape decoded in label");
++        CHECK(nexus_parse_lsblk_line("nvme0n1 894G", &v) && v.internal_nvme,
++              "lsblk: internal nvme flagged");
++        CHECK(!nexus_parse_lsblk_line("   ", &v), "lsblk: blank line skipped");
++    }
++
++    system("rm -rf ./nexus-test-tmp ./preset-fixture-test ./preset-fixture-test-empty");
++    printf(S_failed ? "\nUNIT: FAILURES ABOVE\n" : "\nUNIT: all nexus_boot tests passed\n");
++    return S_failed;
++}

@@ -1,0 +1,16 @@
+{
+  "default": "deny",
+  "listen": "127.0.0.1",
+  "port": 7421,
+  "approval_timeout_minutes": 30,
+  "guests": {
+    "terminal-mac": {
+      "label": "macOS guest via govijr/terminal-mac (Apple silicon host)",
+      "allow": ["~/nexus-workspace/mac/**"]
+    },
+    "windows-guest": {
+      "label": "Windows guest via QEMU/KVM",
+      "allow": ["~/nexus-workspace/win/**"]
+    }
+  }
+}

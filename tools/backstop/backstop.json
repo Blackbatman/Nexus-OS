@@ -1,0 +1,49 @@
+{
+  "baseUrl": "http://localhost:8080/",
+  "report": ["cli", "minimal"],
+  "engine": "puppeteer",
+  "paths": {
+    "bitmaps_reference": "../../tools/backstop/backstop_data/bitmaps_reference",
+    "bitmaps_test": "../../tools/backstop/backstop_data/bitmaps_test",
+    "casper_scripts": "../../tools/backstop/backstop_data/casper_scripts",
+    "html_report": "../../tools/backstop/backstop_data/html_report",
+    "ci_report": "../../tools/backstop/backstop_data/ci_report"
+  },
+  "scenarios": [
+    {
+      "label": "NEXUS hub — default view",
+      "url": "http://localhost:8080/",
+      "delay": 1200,
+      "misMatchThreshold": 1.0,
+      "selectors": ["viewport"],
+      "readyEvent": null
+    },
+    {
+      "label": "NEXUS hub — macOS boot modal",
+      "url": "http://localhost:8080/",
+      "delay": 800,
+      "clickSelector": "[data-os='macos']",
+      "delay": 2500,
+      "misMatchThreshold": 1.0,
+      "selectors": ["viewport"]
+    },
+    {
+      "label": "NEXUS hub — permission gate interactions",
+      "url": "http://localhost:8080/",
+      "delay": 800,
+      "clickSelector": "[data-gate-approve]",
+      "delay": 900,
+      "misMatchThreshold": 1.0,
+      "selectors": ["viewport"]
+    },
+    {
+      "label": "NEXUS hub — power menu open",
+      "url": "http://localhost:8080/",
+      "delay": 800,
+      "clickSelector": "[data-power-button]",
+      "delay": 700,
+      "misMatchThreshold": 1.0,
+      "selectors": ["viewport"]
+    }
+  ]
+}

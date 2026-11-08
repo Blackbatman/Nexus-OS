@@ -1,0 +1,19 @@
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+
+# Workspace init clones upstream repos here at runtime (agents/init.sh)
+third_party/
+
+# Build outputs
+packaging/ps5-elf/build/
+packaging/linux-iso/out/
+packaging/windows-media/out/
+build/
+
+# BackstopJS visual-regression captures
+backstop_data/
+
+# Local scratch
+*.log
+.tmp/

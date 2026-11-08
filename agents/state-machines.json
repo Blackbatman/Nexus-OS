@@ -1,0 +1,262 @@
+{
+  "schema": "nexus.state-machines/1",
+  "updated": "2026-11-09",
+  "description": "Canonical registry of the state machines that were implicit in NEXUS-OS components and the PS5GreenApple app. Human narrative: docs/10-state-machines.md. Validator: tools/statecheck/statecheck.py (runs in beta-team harness). Source refs are repo paths; app-side machines cite the greapple-v2 spec and name the upstream file in 'upstream'.",
+  "conventions": {
+    "status_vocabulary": "PROVEN means upstream demonstrated on hardware; READY means engineering complete here; RESEARCH means no public proof; SIMULATED means dump-backend or dry-run evidence. No surface may claim a higher tier than its evidence.",
+    "fail_loud": "Every machine fails loudly BEFORE touching machine state: missing artifacts, unknown inputs, and refused guards must exit with a diagnostic and a log entry."
+  },
+  "machines": [
+    {
+      "id": "SM-01",
+      "name": "Boot Intent Contract",
+      "component": "hub writers -> /data/NEXUS/boot-select.json -> nexus-bootd",
+      "initial": "NO_INTENT",
+      "states": ["NO_INTENT", "STAGED_VALID", "STAGED_INVALID", "DISPATCHED", "CHAIN_RUNNING", "HANDOFF", "FAIL_LOUD"],
+      "terminals": ["HANDOFF", "FAIL_LOUD"],
+      "transitions": [
+        {"from": "NO_INTENT", "guard": "hub-confirm (atomic write: tmp + fsync + rename)", "to": "STAGED_VALID", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "STAGED_VALID", "guard": "re-stage (last-staged-wins: file persists across Linux-stage runs)", "to": "STAGED_VALID", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "STAGED_VALID", "guard": "selector validates JSON + target whitelist + flavor rule", "to": "DISPATCHED", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "STAGED_VALID", "guard": "corrupt JSON | unknown target | linux-without-flavor", "to": "STAGED_INVALID", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "STAGED_INVALID", "guard": "selector die (exit 1, logged)", "to": "FAIL_LOUD", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "DISPATCHED", "guard": "chain script exec'd (M with confirm flag, L with flavor, W research)", "to": "CHAIN_RUNNING", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "CHAIN_RUNNING", "guard": "artifacts present and guards passed (see SM-08)", "to": "HANDOFF", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "CHAIN_RUNNING", "guard": "artifact missing | guard refused | post-hop still alive", "to": "FAIL_LOUD", "source": "bootchain/kexec/chainload-macos.sh"}
+      ],
+      "invariants": [
+        "Writers are atomic: a hub crash mid-write can never leave a half-written intent.",
+        "The reader never executes an invalid intent: validation happens before any exec, and every decision is appended to the boot log.",
+        "Three writers (greapple-v2 nexus_write_select, nexus_boot.elf, test fixtures), one reader (nexus-boot-select.sh): the schema {version:1,target,flavor?} is the contract; writers include staged_at and staged_by.",
+        "No writer ever boots; only the Linux-stage reader dispatches."
+      ],
+      "findings": [
+        "F-A: the reader ignores the 'version' field today (any version dispatches). Reserved forward-compat check — do not silently extend the schema.",
+        "F-C: last-staged-wins — a stale intent from a previous session re-dispatches on the next Linux-stage run. The hub should surface staged_at age (see greapple-v2 status line)."
+      ]
+    },
+    {
+      "id": "SM-02",
+      "name": "Hub App Lifecycle",
+      "component": "PS5GreenApple desktop shell",
+      "upstream": "Blackbatman/PS5GreenApple src/desktop.c (S_state), src/main.c (loop exit)",
+      "initial": "DS_BOOT",
+      "states": ["DS_BOOT", "DS_RUN", "DS_SLEEP", "DS_SHUTDOWN", "EXITED"],
+      "terminals": ["EXITED"],
+      "transitions": [
+        {"from": "DS_BOOT", "guard": "boot animation completes (SM-03 done)", "to": "DS_RUN", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DS_RUN", "guard": "Apple menu -> Sleep", "to": "DS_SLEEP", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DS_SLEEP", "guard": "click anywhere", "to": "DS_RUN", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DS_RUN", "guard": "Disconnect Sandbox / desktop_begin_shutdown", "to": "DS_SHUTDOWN", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DS_SHUTDOWN", "guard": "shutdown draw finishes; main loop exits cleanly", "to": "EXITED", "source": "nexus-hub/greapple-v2/README.md"}
+      ],
+      "invariants": [
+        "The main loop only exits through DS_SHUTDOWN — no early abort path skips resource disposal.",
+        "All input routes through the sandboxed desktop frame; no handler touches hardware state directly.",
+        "DS_SLEEP is the only state where the shell is re-enterable by a bare click; every other wait state has an explicit affordance."
+      ]
+    },
+    {
+      "id": "SM-03",
+      "name": "Boot Animation Phase",
+      "component": "PS5GreenApple boot animation",
+      "upstream": "Blackbatman/PS5GreenApple src/boot.c (S_t0/S_active), src/boot.h",
+      "initial": "IDLE",
+      "states": ["IDLE", "PLAYING", "DONE"],
+      "terminals": ["DONE"],
+      "transitions": [
+        {"from": "IDLE", "guard": "boot_reset at desktop init", "to": "PLAYING", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PLAYING", "guard": "frame tick (elapsed < duration)", "to": "PLAYING", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PLAYING", "guard": "boot_frame reports finished | boot_skip", "to": "DONE", "source": "nexus-hub/greapple-v2/README.md"}
+      ],
+      "invariants": [
+        "DONE fires exactly once (S_active flag) and hands DS_BOOT -> DS_RUN in SM-02.",
+        "boot_skip is the user escape hatch: animation can always be cut short, never restarted mid-run."
+      ]
+    },
+    {
+      "id": "SM-04",
+      "name": "OS Persona Router",
+      "component": "PS5GreenApple desktop theme router",
+      "upstream": "Blackbatman/PS5GreenApple src/desktop.c (desktop_set_os_target)",
+      "initial": "PERSONA_MAC",
+      "states": ["PERSONA_MAC", "PERSONA_WIN", "PERSONA_LINUX", "APP_CLOSED"],
+      "terminals": ["APP_CLOSED"],
+      "transitions": [
+        {"from": "PERSONA_MAC", "guard": "set_os_target(2) — single-frame re-style, zero lag", "to": "PERSONA_LINUX", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_MAC", "guard": "set_os_target(1)", "to": "PERSONA_WIN", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_WIN", "guard": "set_os_target(0)", "to": "PERSONA_MAC", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_WIN", "guard": "set_os_target(2)", "to": "PERSONA_LINUX", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_LINUX", "guard": "set_os_target(0)", "to": "PERSONA_MAC", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_LINUX", "guard": "set_os_target(1)", "to": "PERSONA_WIN", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_MAC", "guard": "app exits (SM-02 DS_SHUTDOWN)", "to": "APP_CLOSED", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_WIN", "guard": "app exits (SM-02 DS_SHUTDOWN)", "to": "APP_CLOSED", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "PERSONA_LINUX", "guard": "app exits (SM-02 DS_SHUTDOWN)", "to": "APP_CLOSED", "source": "nexus-hub/greapple-v2/README.md"}
+      ],
+      "invariants": [
+        "greapple-v2 Patch 2: from v2.1 the persona switch is COSMETIC FEEDBACK ONLY (Settings -> Theme preview) and must never be mistaken for a boot action — staging is SM-01.",
+        "No transition pass: a persona change restyles the canvas in one frame; there is no intermediate state to observe."
+      ],
+      "findings": [
+        "F-D history note: in v2.0.1 this router WAS the hub's fake boot; the greapple-v2 patch plan demotes it. Kept here because the demotion is itself a state-machine change agents must respect."
+      ]
+    },
+    {
+      "id": "SM-05",
+      "name": "Boot Camp Volume Row",
+      "component": "PS5GreenApple Boot Camp (per row)",
+      "upstream": "Blackbatman/PS5GreenApple src/app_bootcamp.c; behavior specified by greapple-v2 Patch 3",
+      "initial": "DETECTED",
+      "states": ["DETECTED", "MOUNTED", "UNMOUNTED", "STAGEABLE_L", "STAGEABLE_W", "SOURCE_ONLY_M", "LOCKED_BY_POLICY", "LIMITED_FW"],
+      "terminals": ["STAGEABLE_L", "STAGEABLE_W", "SOURCE_ONLY_M", "LOCKED_BY_POLICY", "LIMITED_FW"],
+      "transitions": [
+        {"from": "DETECTED", "guard": "backend_list_volumes (lsblk parse; FW userland lists /mnt/usb0 + /data)", "to": "UNMOUNTED", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "UNMOUNTED", "guard": "MOUNT action (Linux stage only, mount(8))", "to": "MOUNTED", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "MOUNTED", "guard": "UNMOUNT action", "to": "UNMOUNTED", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "MOUNTED", "guard": "ext4 with PS5-built bzImage", "to": "STAGEABLE_L", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "MOUNTED", "guard": "NTFS carrying EFI/Boot/bootmgfw.efi", "to": "STAGEABLE_W", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "MOUNTED", "guard": "APFS volume", "to": "SOURCE_ONLY_M", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DETECTED", "guard": "internal NVMe enumerated", "to": "LOCKED_BY_POLICY", "source": "nexus-hub/greapple-v2/README.md"},
+        {"from": "DETECTED", "guard": "bare FW userland (no shell, no block info)", "to": "LIMITED_FW", "source": "nexus-hub/greapple-v2/README.md"}
+      ],
+      "invariants": [
+        "STAGE AS BOOT TARGET is enabled ONLY when a declared chain can consume the volume — never a dead button.",
+        "LOCKED_BY_POLICY is permanent for internal NVMe (upstream blocks internal SSD on purpose); the row still renders.",
+        "Classification labels reuse the global status vocabulary; no row may claim more than its chain's tier."
+      ]
+    },
+    {
+      "id": "SM-06",
+      "name": "Permission Gate Request",
+      "component": "nested-os/permission-gate/gate-daemon.py",
+      "initial": "RECEIVED",
+      "states": ["RECEIVED", "ALLOWED", "DENIED", "WAITING_APPROVAL", "RESOLVED_ALLOWED", "RESOLVED_DENIED"],
+      "terminals": ["ALLOWED", "DENIED", "RESOLVED_ALLOWED", "RESOLVED_DENIED"],
+      "transitions": [
+        {"from": "RECEIVED", "guard": "unknown guest", "to": "DENIED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "RECEIVED", "guard": "action not in read|write|execute", "to": "DENIED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "RECEIVED", "guard": "path contains traversal parts", "to": "DENIED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "RECEIVED", "guard": "policy allow-rule matches resolved path", "to": "ALLOWED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "RECEIVED", "guard": "default-deny: no rule matched", "to": "WAITING_APPROVAL", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "WAITING_APPROVAL", "guard": "operator approve=true", "to": "RESOLVED_ALLOWED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "WAITING_APPROVAL", "guard": "operator approve=false", "to": "RESOLVED_DENIED", "source": "nested-os/permission-gate/gate-daemon.py"},
+        {"from": "WAITING_APPROVAL", "guard": "approve on unknown request_id (logged no-op)", "to": "WAITING_APPROVAL", "source": "nested-os/permission-gate/gate-daemon.py"}
+      ],
+      "invariants": [
+        "Construction refuses any policy whose default is not 'deny' (ValueError) — the gate has no open mode.",
+        "Every decision (including denials and queue events) is appended to the JSONL log.",
+        "Malformed HTTP JSON is a 400 at the transport layer; it never creates a request object.",
+        "The 8-scenario selftest covers: allow-rule, queue, approve, unknown guest, traversal, bad action, operator deny, malformed input."
+      ],
+      "findings": [
+        "F-B: policy declares approval_timeout_minutes=30 but nothing enforces it — WAITING_APPROVAL is unbounded until a human acts. Intentional for now; implement the timeout only with an explicit operator decision and a log event for expiry."
+      ]
+    },
+    {
+      "id": "SM-07",
+      "name": "Voice Intent Parse",
+      "component": "tools/voice/voice_cmd.py (DIC)",
+      "initial": "LISTEN",
+      "states": ["LISTEN", "INTENT_NONE", "INTENT_BOOT_TARGET", "INTENT_BOOT_FLAVOR", "INTENT_BOOT_BARE", "INTENT_POWER", "INTENT_GATE", "INTENT_STATUS", "INTENT_UNKNOWN"],
+      "terminals": ["INTENT_NONE", "INTENT_BOOT_TARGET", "INTENT_BOOT_FLAVOR", "INTENT_BOOT_BARE", "INTENT_POWER", "INTENT_GATE", "INTENT_STATUS", "INTENT_UNKNOWN"],
+      "transitions": [
+        {"from": "LISTEN", "guard": "empty after wake-word strip", "to": "INTENT_NONE", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "boot verb + explicit target", "to": "INTENT_BOOT_TARGET", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "boot verb + flavor only (flavor implies linux)", "to": "INTENT_BOOT_FLAVOR", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "bare boot verb (target stays null; hub shows OS grid)", "to": "INTENT_BOOT_BARE", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "power grammar (rest|restart|shutdown)", "to": "INTENT_POWER", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "gate grammar (approve|deny[, id N])", "to": "INTENT_GATE", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "status grammar", "to": "INTENT_STATUS", "source": "tools/voice/voice_cmd.py"},
+        {"from": "LISTEN", "guard": "no pattern matched", "to": "INTENT_UNKNOWN", "source": "tools/voice/voice_cmd.py"}
+      ],
+      "invariants": [
+        "The guard order above IS the precedence: boot > power > gate > status. Preserve it when editing the regexes.",
+        "The parser returns action JSON, never shell strings; injection-shaped input ('boot; rm -rf /') lands in INTENT_BOOT_BARE with target null and no leaked text (selftest-enforced).",
+        "Linux flavors whitelist matches chainload-linux.sh exactly (8 entries)."
+      ]
+    },
+    {
+      "id": "SM-08",
+      "name": "Chain Arming Guards",
+      "component": "bootchain/kexec/chainload-{macos,windows,linux}.sh",
+      "initial": "INVOKED",
+      "states": ["INVOKED", "VALIDATED", "GUARDED", "EXECUTED", "HANDOFF_OR_HOP", "STILL_ALIVE_FAIL", "DRYRUN_DONE", "FAIL_LOUD"],
+      "terminals": ["HANDOFF_OR_HOP", "STILL_ALIVE_FAIL", "DRYRUN_DONE", "FAIL_LOUD"],
+      "transitions": [
+        {"from": "INVOKED", "guard": "args parse ok", "to": "VALIDATED", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "INVOKED", "guard": "unknown option or missing required arg", "to": "FAIL_LOUD", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "VALIDATED", "guard": "--dry-run (missing artifacts WARN, never fail)", "to": "DRYRUN_DONE", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "VALIDATED", "guard": "artifacts present (real mode: chain M stage1; chain L kernel+initrd; chain W payload+bootmgfw)", "to": "GUARDED", "source": "bootchain/kexec/chainload-linux.sh"},
+        {"from": "VALIDATED", "guard": "artifact missing in real mode", "to": "FAIL_LOUD", "source": "bootchain/kexec/chainload-windows.sh"},
+        {"from": "GUARDED", "guard": "chain M: --i-know-this-crashes-the-host AND uid=0 (chains L/W: no extra confirm by design)", "to": "EXECUTED", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "GUARDED", "guard": "confirm or privilege refused", "to": "FAIL_LOUD", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "EXECUTED", "guard": "chain M: sysrq-c taken | chain L: kexec -e | chain W: uefi handoff", "to": "HANDOFF_OR_HOP", "source": "bootchain/kexec/chainload-macos.sh"},
+        {"from": "EXECUTED", "guard": "chain M only: shell still alive after sysrq-c", "to": "STILL_ALIVE_FAIL", "source": "bootchain/kexec/chainload-macos.sh"}
+      ],
+      "invariants": [
+        "No script changes machine state before ALL its guards pass: missing artifacts fail loudly first.",
+        "--dry-run is always safe and prints the exact would-run commands; the beta harness runs it in CI.",
+        "Chain M's crash hop is a controlled panic by design; STILL_ALIVE_FAIL exists to diagnose a crash kernel that was not taken.",
+        "Every dispatch decision is appended to the boot log (SM-01)."
+      ]
+    },
+    {
+      "id": "SM-09",
+      "name": "Hub Demo Boot Modal",
+      "component": "nexus-hub/web-demo/index.html (simulation surface)",
+      "initial": "MODAL_CLOSED",
+      "states": ["MODAL_CLOSED", "STEPPING", "DONE_BANNER"],
+      "terminals": ["DONE_BANNER"],
+      "transitions": [
+        {"from": "MODAL_CLOSED", "guard": "user opens OS card (openModal)", "to": "STEPPING", "source": "nexus-hub/web-demo/index.html"},
+        {"from": "STEPPING", "guard": "timed log steps advance", "to": "STEPPING", "source": "nexus-hub/web-demo/index.html"},
+        {"from": "STEPPING", "guard": "final step reached", "to": "DONE_BANNER", "source": "nexus-hub/web-demo/index.html"},
+        {"from": "STEPPING", "guard": "user closes early", "to": "MODAL_CLOSED", "source": "nexus-hub/web-demo/index.html"}
+      ],
+      "invariants": [
+        "The demo is a SIMULATION: every banner carries the honest marker and must keep mirroring the real chain stage labels (docs/03) — demo states may not out-claim the registry.",
+        "DONE_BANNER text states what upstream proved vs what stays simulated."
+      ],
+      "findings": [
+        "F-E: the macOS modal steps (7) and docs/03 chain M steps (0-8, nine rows) are not 1:1 in granularity; labels match in meaning. Keep parity in mind when either side changes."
+      ]
+    },
+    {
+      "id": "SM-10",
+      "name": "Feature Harness Session",
+      "component": "agents/feature_list.json + CLAUDE.md protocol",
+      "initial": "QUEUED",
+      "states": ["QUEUED", "IN_PROGRESS", "VERIFIED", "BLOCKED_APPROVAL"],
+      "terminals": ["VERIFIED", "BLOCKED_APPROVAL"],
+      "transitions": [
+        {"from": "QUEUED", "guard": "session picks exactly ONE passes:false feature", "to": "IN_PROGRESS", "source": "CLAUDE.md"},
+        {"from": "IN_PROGRESS", "guard": "check passes with quoted evidence (run-tests or feature-specific)", "to": "VERIFIED", "source": "CLAUDE.md"},
+        {"from": "IN_PROGRESS", "guard": "feature hits an approval gate (publish/spend/hardware/network)", "to": "BLOCKED_APPROVAL", "source": "CLAUDE.md"},
+        {"from": "IN_PROGRESS", "guard": "session ends without verification", "to": "QUEUED", "source": "CLAUDE.md"}
+      ],
+      "invariants": [
+        "A feature becomes VERIFIED only with passing test output shown BEFORE feature_list.json is edited.",
+        "Every VERIFIED entry carries an evidence string naming the exact check.",
+        "Progress notes are appended every session (agents/claude-progress.txt) — the notes are the team's memory."
+      ]
+    },
+    {
+      "id": "SM-11",
+      "name": "Workspace Init",
+      "component": "agents/init.sh",
+      "initial": "UNINITIALIZED",
+      "states": ["UNINITIALIZED", "TOOLS_OK", "REPOS_PRESENT", "SMOKE_PASS", "SMOKE_FAIL"],
+      "terminals": ["SMOKE_PASS", "SMOKE_FAIL"],
+      "transitions": [
+        {"from": "UNINITIALIZED", "guard": "git + python3 + bash + node all present (else exit 1)", "to": "TOOLS_OK", "source": "agents/init.sh"},
+        {"from": "TOOLS_OK", "guard": "repos cloned or skipped (NEXUS_NO_NET=1; failures warn, never abort)", "to": "REPOS_PRESENT", "source": "agents/init.sh"},
+        {"from": "REPOS_PRESENT", "guard": "beta-team --quick green", "to": "SMOKE_PASS", "source": "agents/init.sh"},
+        {"from": "REPOS_PRESENT", "guard": "smoke failures (read reports before sessions)", "to": "SMOKE_FAIL", "source": "agents/init.sh"}
+      ],
+      "invariants": [
+        "Missing required tools abort hard; optional tools (r2, jq, gcc) warn only.",
+        "Network fetches happen only here, only into third_party/, and are approval-gated by policy."
+      ]
+    }
+  ]
+}

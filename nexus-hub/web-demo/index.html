@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="NEXUS Hub — interactive research UI mock for the NEXUS-OS multi-OS boot hub (jailbroken PS5).">
+<title>NEXUS Hub // OS SELECTION</title>
+
+<!-- FONTS: Rajdhani (UI) + Share Tech Mono (telemetry) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   NEXUS HUB — dark glass "NEXUS Metro" (Mass Effect + CP2077)
+   ============================================================ */
+:root{
+  --bg:#070B12;
+  --panel:rgba(10,18,28,0.72);
+  --panel-solid:#0A121C;
+  --line:rgba(90,220,255,0.25);
+  --line-soft:rgba(90,220,255,0.12);
+  --cyan:#35E0FF;
+  --blue:#6EC1FF;
+  --yellow:#FCEE0A;
+  --magenta:#FF2A6D;
+  --ok:#3DFFA2;
+  --warn:#FFB84D;
+  --text:#D7E6F2;
+  --muted:#7E93A8;
+  --mono:'Share Tech Mono',ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --head:'Rajdhani','Segoe UI',system-ui,sans-serif;
+  --bracket:rgba(53,224,255,0.55);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scrollbar-color:#1d3346 #070B12}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font:600 15px/1.45 var(--head);
+  letter-spacing:.02em;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus{outline:none}
+:focus-visible{outline:1px solid var(--cyan);outline-offset:2px}
+::selection{background:rgba(53,224,255,.25)}
+
+/* ---------- BACKGROUND LAYERS ---------- */
+.bg-grid,.bg-glow,.bg-scan{position:fixed;inset:0;pointer-events:none}
+/* radial grid + cross-lines, very low opacity */
+.bg-grid{
+  z-index:0;
+  background-image:
+    repeating-radial-gradient(circle at 50% 42%, rgba(110,193,255,0.05) 0 1px, transparent 1px 90px),
+    repeating-linear-gradient(0deg,  rgba(110,193,255,0.035) 0 1px, transparent 1px 90px),
+    repeating-linear-gradient(90deg, rgba(110,193,255,0.035) 0 1px, transparent 1px 90px);
+  mask-image:radial-gradient(ellipse at 50% 40%, #000 30%, transparent 85%);
+  -webkit-mask-image:radial-gradient(ellipse at 50% 40%, #000 30%, transparent 85%);
+}
+/* soft corner glows: cyan top-left, magenta bottom-right */
+.bg-glow{z-index:0;background:
+  radial-gradient(720px 520px at 8% -6%,  rgba(53,224,255,0.10), transparent 62%),
+  radial-gradient(760px 560px at 96% 104%, rgba(255,42,109,0.08), transparent 62%);}
+/* scanlines ~3% */
+.bg-scan{z-index:1;opacity:.03;
+  background:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);}
+
+/* ---------- GLASS + CORNER BRACKETS ---------- */
+.glass{
+  position:relative;
+  background-color:var(--panel);
+  -webkit-backdrop-filter:blur(14px);
+  backdrop-filter:blur(14px);
+  border:1px solid var(--line);
+  background-image:
+    linear-gradient(var(--bracket),var(--bracket)),linear-gradient(var(--bracket),var(--bracket)),
+    linear-gradient(var(--bracket),var(--bracket)),linear-gradient(var(--bracket),var(--bracket)),
+    linear-gradient(var(--bracket),var(--bracket)),linear-gradient(var(--bracket),var(--bracket)),
+    linear-gradient(var(--bracket),var(--bracket)),linear-gradient(var(--bracket),var(--bracket));
+  background-repeat:no-repeat;
+  background-size:12px 1px,1px 12px,12px 1px,1px 12px,12px 1px,1px 12px,12px 1px,1px 12px;
+  background-position:top left,top left,top right,top right,bottom left,bottom left,bottom right,bottom right;
+}
+.cut{clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)}
+
+/* ---------- TOP PANEL ---------- */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  height:60px;display:flex;align-items:center;gap:18px;
+  padding:0 22px;
+  border-left:none;border-right:none;border-top:none;
+  background-color:rgba(10,18,28,0.82);
+}
+.brand{display:flex;align-items:baseline;gap:8px;user-select:none}
+.logo{
+  position:relative;
+  font:700 26px/1 var(--head);letter-spacing:.22em;color:var(--text);
+}
+.logo::before,.logo::after{
+  content:attr(data-text);position:absolute;left:0;top:0;opacity:0;
+  letter-spacing:.22em;pointer-events:none;
+}
+.logo::before{color:var(--magenta);animation:glitchA 1.05s steps(1,end) .25s 1 both}
+.logo::after {color:var(--cyan);   animation:glitchA 1.05s steps(1,end) .38s 1 both}
+@keyframes glitchA{
+  0%{opacity:0}
+  10%{opacity:1;clip-path:inset(0 0 64% 0);transform:translateX(-3px)}
+  20%{clip-path:inset(42% 0 30% 0);transform:translateX(3px)}
+  30%{clip-path:inset(72% 0 4% 0); transform:translateX(-2px)}
+  40%{opacity:1;clip-path:inset(14% 0 58% 0);transform:translateX(2px)}
+  52%{opacity:0;clip-path:inset(0 0 100% 0)}
+  100%{opacity:0}
+}
+.logo-os{font:700 14px/1 var(--mono);color:var(--cyan);letter-spacing:.12em}
+.tb-sep{width:1px;height:24px;background:var(--line);margin:0 2px}
+.tb-menu{font:700 13px var(--head);letter-spacing:.3em;color:var(--muted)}
+.tb-crumb{
+  margin:0 auto;
+  font:600 12px var(--mono);letter-spacing:.24em;color:var(--muted);
+  text-transform:uppercase;white-space:nowrap;
+}
+.tb-crumb b{color:var(--cyan);font-weight:400}
+.tray{display:flex;align-items:center;gap:14px}
+.tray svg{width:17px;height:17px;display:block;color:var(--blue)}
+.tray .clock{font:400 15px var(--mono);color:var(--text);letter-spacing:.08em}
+.tray .date{font:400 11px var(--mono);color:var(--muted);letter-spacing:.1em}
+
+/* power dropdown */
+.power-wrap{position:relative}
+.power-btn{
+  display:flex;align-items:center;gap:6px;padding:7px 9px;
+  border:1px solid var(--line-soft);border-radius:2px;
+  transition:border-color .18s ease,background .18s ease;
+}
+.power-btn:hover{border-color:var(--cyan);background:rgba(53,224,255,.06)}
+.power-btn svg{width:16px;height:16px;color:var(--cyan)}
+.power-menu{
+  position:absolute;right:0;top:calc(100% + 10px);width:320px;z-index:60;
+  padding:10px 8px 8px;
+}
+.power-menu[hidden]{display:none}
+.pm-title{font:400 11px var(--mono);letter-spacing:.2em;color:var(--muted);padding:2px 8px 8px;border-bottom:1px solid var(--line-soft);margin-bottom:6px}
+.pm-item{
+  display:block;width:100%;text-align:left;padding:8px;
+  border-left:2px solid transparent;
+  transition:background .15s ease,border-color .15s ease;
+}
+.pm-item:hover{background:rgba(53,224,255,.06);border-left-color:var(--cyan)}
+.pm-item span{display:block;font:700 13px var(--head);letter-spacing:.14em}
+.pm-item small{display:block;font:400 10px var(--mono);color:var(--warn);letter-spacing:.05em;margin-top:2px}
+.pm-item.danger span{color:var(--magenta)}
+.pm-item.danger:hover{border-left-color:var(--magenta)}
+
+/* ---------- LAYOUT ---------- */
+.layout{
+  position:relative;z-index:5;
+  max-width:1760px;margin:0 auto;
+  padding:84px 26px 130px;
+  display:grid;grid-template-columns:62fr 38fr;gap:18px;
+  align-items:start;
+}
+.sec-h{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  font:700 16px var(--head);letter-spacing:.2em;text-transform:uppercase;
+}
+.sec-h::before{content:"";width:9px;height:9px;border:2px solid var(--cyan);flex:none}
+.sec-h .h-note{margin-left:auto;font:400 11px var(--mono);letter-spacing:.14em;color:var(--muted)}
+.panel{padding:18px}
+.panel + .panel{margin-top:18px}
+.panel h2{font:700 14px var(--head);letter-spacing:.18em;text-transform:uppercase;color:var(--text)}
+.panel .p-sub{font:400 10.5px var(--mono);letter-spacing:.1em;color:var(--muted);margin-top:2px;text-transform:uppercase}
+
+/* ---------- OS GRID (LEFT) ---------- */
+.os-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:14px}
+.os-card{
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:flex-start;gap:7px;
+  padding:16px 15px 14px;min-height:148px;text-align:left;
+  transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.os-card:hover{border-color:rgba(53,224,255,.65);transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,0,0,.45)}
+/* hover scan-sweep */
+.os-card::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 42%,rgba(53,224,255,.10) 50%,transparent 58%);
+  transform:translateX(-130%);transition:transform .7s ease;
+}
+.os-card:hover::after{transform:translateX(130%)}
+.os-ico{width:34px;height:34px;color:var(--blue);margin-bottom:2px}
+.os-card:hover .os-ico{color:var(--cyan)}
+.os-ico svg{width:100%;height:100%;display:block}
+.os-name{font:700 16px/1.1 var(--head);letter-spacing:.14em;text-transform:uppercase}
+.os-ver{font:400 10.5px var(--mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;margin-top:auto;
+  font:400 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;
+  padding:3px 8px;border-radius:1px;border:1px solid;
+}
+.chip::before{content:"";width:5px;height:5px;background:currentColor;flex:none}
+.chip.ok    {color:var(--ok);    border-color:rgba(61,255,162,.45)}
+.chip.info  {color:var(--cyan);  border-color:rgba(53,224,255,.4)}
+.chip.warn  {color:var(--warn);  border-color:rgba(255,184,77,.45)}
+.chip.magenta{color:var(--magenta);border-color:rgba(255,42,109,.5)}
+
+/* ---------- RIGHT COLUMN ---------- */
+/* volumes */
+.vol-row{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 4px;border-bottom:1px solid var(--line-soft);
+}
+.vol-row:last-of-type{border-bottom:none}
+.vol-info{flex:1;min-width:0}
+.vol-name{font:700 14px var(--head);letter-spacing:.12em;text-transform:uppercase}
+.vol-sub{font:400 10.5px var(--mono);color:var(--muted);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{
+  font:700 11px var(--head);letter-spacing:.18em;text-transform:uppercase;
+  padding:7px 14px;border:1px solid var(--line);border-radius:1px;
+  transition:background .16s ease,border-color .16s ease,color .16s ease;
+}
+.btn:hover:not(:disabled){border-color:var(--cyan);background:rgba(53,224,255,.08)}
+.btn.tiny{padding:4px 9px;font-size:9.5px}
+.btn.ghost{color:var(--muted)}
+.btn.ghost:hover{color:var(--text)}
+.btn.primary{border-color:rgba(53,224,255,.6);color:var(--cyan)}
+.btn.primary:disabled{opacity:.38}
+.lock-chip{display:inline-flex;align-items:center;gap:5px}
+.lock-chip svg{width:12px;height:12px}
+
+/* permission gate */
+.gate-row{
+  display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;
+  padding:10px 10px;margin-bottom:6px;
+  border:1px solid var(--line-soft);border-left:2px solid var(--yellow);
+  background:rgba(255,255,255,.015);
+  transition:border-color .2s ease,background .2s ease;
+}
+.gate-row[data-state="approved"]{border-left-color:var(--ok);background:rgba(61,255,162,.05)}
+.gate-row[data-state="denied"]{border-left-color:var(--magenta);background:rgba(255,42,109,.05)}
+.gate-txt{font:400 11px var(--mono);letter-spacing:.03em;color:var(--text);word-break:break-word}
+.gate-status{font:400 10px var(--mono);letter-spacing:.14em;color:var(--yellow);min-width:64px;text-align:right}
+.gate-row[data-state="approved"] .gate-status{color:var(--ok)}
+.gate-row[data-state="denied"] .gate-status{color:var(--magenta)}
+.gate-actions{display:flex;gap:6px}
+.btn.tiny.okb{border-color:rgba(61,255,162,.4);color:var(--ok)}
+.btn.tiny.okb:hover:not(:disabled){background:rgba(61,255,162,.1);border-color:var(--ok)}
+.btn.tiny.magb{border-color:rgba(255,42,109,.4);color:var(--magenta)}
+.btn.tiny.magb:hover:not(:disabled){background:rgba(255,42,109,.1);border-color:var(--magenta)}
+.p-note{font:400 10px var(--mono);color:var(--muted);letter-spacing:.06em;margin-top:10px;text-transform:uppercase}
+.p-note b{color:var(--warn);font-weight:400}
+
+/* telemetry */
+.tele-row{display:grid;grid-template-columns:132px 1fr 96px;gap:12px;align-items:center;padding:8px 0}
+.t-label{font:700 11px var(--head);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.t-bar{height:6px;background:rgba(90,220,255,.08);border:1px solid var(--line-soft);position:relative;overflow:hidden}
+.t-bar i{position:absolute;inset:0;right:auto;width:0%;background:linear-gradient(90deg,rgba(53,224,255,.35),var(--cyan));transition:width 1.2s ease}
+.t-bar i.warnbar{background:linear-gradient(90deg,rgba(255,184,77,.35),var(--warn))}
+.t-val{font:400 12px var(--mono);color:var(--text);letter-spacing:.06em;text-align:right;white-space:nowrap}
+
+/* voice */
+.voice-out{
+  height:118px;overflow-y:auto;margin:12px 0 10px;padding:10px 12px;
+  border:1px solid var(--line-soft);background:rgba(5,9,15,.6);
+  font:400 11.5px/1.7 var(--mono);color:var(--text);
+  scrollbar-width:thin;scrollbar-color:#1d3346 transparent;
+}
+.voice-out::-webkit-scrollbar{width:6px}
+.voice-out::-webkit-scrollbar-thumb{background:#1d3346}
+.vline{margin-bottom:2px;word-break:break-word}
+.vline .vu{color:var(--muted)}
+.vline.sys{color:var(--cyan)}
+.vline.warn{color:var(--warn)}
+.vline.ok{color:var(--ok)}
+.voice-line{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(5,9,15,.6);padding:2px 10px}
+.voice-line .prompt{font:400 12px var(--mono);color:var(--cyan)}
+.voice-line input{
+  flex:1;background:none;border:none;color:var(--text);
+  font:400 12px var(--mono);letter-spacing:.04em;padding:8px 0;
+}
+.voice-line input::placeholder{color:#4d6076;text-transform:none}
+.voice-line input:focus-visible{outline:none}
+.voice-line:focus-within{border-color:var(--cyan)}
+.vchips{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.vchip{
+  font:400 10.5px var(--mono);letter-spacing:.08em;color:var(--blue);
+  border:1px solid var(--line-soft);padding:4px 10px;border-radius:1px;
+  transition:border-color .16s ease,color .16s ease,background .16s ease;
+}
+.vchip:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(53,224,255,.06)}
+
+/* ---------- DOCK ---------- */
+.dock{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:50;
+  display:flex;gap:6px;padding:8px 10px;border-radius:3px;
+}
+.dock-btn{
+  position:relative;width:52px;height:52px;display:grid;place-items:center;
+  border:1px solid transparent;border-radius:2px;color:var(--muted);
+  transition:color .16s ease,border-color .16s ease,background .16s ease;
+}
+.dock-btn svg{width:24px;height:24px;display:block}
+.dock-btn:hover{color:var(--cyan);border-color:var(--line);background:rgba(53,224,255,.06)}
+.dock-btn.active{color:var(--cyan);border-color:rgba(53,224,255,.5);background:rgba(53,224,255,.08)}
+.dock-btn .run-dot{
+  position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--ok);opacity:0;
+}
+.dock-btn.running .run-dot{opacity:1}
+
+/* generic tooltip */
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{
+  content:attr(data-tip);
+  position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);
+  background:rgba(7,12,19,.96);border:1px solid var(--line);color:var(--text);
+  font:400 10.5px/1.4 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+  padding:6px 10px;white-space:nowrap;z-index:80;pointer-events:none;border-radius:1px;
+}
+
+/* ---------- FOOTER ---------- */
+.footer{
+  position:relative;z-index:5;max-width:1760px;margin:0 auto;
+  padding:0 26px 118px;color:var(--muted);
+  font:400 10.5px/1.8 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+}
+.footer .repos span{color:#5a7089;transition:color .15s ease}
+.footer .repos span:hover{color:var(--blue)}
+
+/* ---------- BOOT MODAL ---------- */
+.modal-backdrop{
+  position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(3,6,11,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  padding:24px;
+}
+[hidden]{display:none !important}
+.modal{width:min(680px,94vw);max-height:88vh;overflow-y:auto;padding:22px 24px 20px;scrollbar-width:thin}
+.m-head{display:flex;align-items:flex-start;gap:14px;border-bottom:1px solid var(--line-soft);padding-bottom:14px}
+.m-eyebrow{font:400 10.5px var(--mono);letter-spacing:.2em;color:var(--cyan);text-transform:uppercase}
+.m-head h3{font:700 24px/1.15 var(--head);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+.m-ver{font:400 11px var(--mono);color:var(--muted);letter-spacing:.08em;margin-top:3px;text-transform:uppercase}
+.m-head .chip{margin:4px 0 0 auto;flex:none}
+.m-close{
+  flex:none;width:30px;height:30px;display:grid;place-items:center;margin:2px 0 0 2px;
+  border:1px solid var(--line-soft);color:var(--muted);
+  transition:color .15s ease,border-color .15s ease;
+}
+.m-close:hover{color:var(--magenta);border-color:var(--magenta)}
+.m-close svg{width:13px;height:13px}
+.m-steps{list-style:none;margin:16px 0 14px}
+.m-step{
+  display:flex;gap:12px;align-items:baseline;
+  padding:7px 10px;margin-bottom:4px;
+  border:1px solid transparent;border-left:2px solid var(--line-soft);
+  font:400 12px/1.5 var(--mono);letter-spacing:.02em;color:var(--text);
+  opacity:.3;transition:opacity .3s ease,border-color .3s ease,background .3s ease;
+}
+.m-step.lit{opacity:1;border-left-color:var(--cyan);background:rgba(53,224,255,.045)}
+.m-step.lit .m-idx{color:var(--cyan)}
+.m-step.lit.done{border-left-color:var(--ok)}
+.m-step.lit.done .m-idx{color:var(--ok)}
+.m-idx{flex:none;min-width:36px;color:var(--muted)}
+.m-progress{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.m-progress-bar{flex:1;height:5px;background:rgba(90,220,255,.08);border:1px solid var(--line-soft);overflow:hidden;position:relative}
+.m-progress-bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,rgba(53,224,255,.35),var(--cyan));transition:width .5s ease}
+.m-stage{font:400 11px var(--mono);letter-spacing:.14em;color:var(--muted);white-space:nowrap}
+.m-banner{
+  font:400 10.5px/1.6 var(--mono);letter-spacing:.06em;text-transform:uppercase;
+  border:1px dashed rgba(53,224,255,.4);border-left:3px solid var(--cyan);
+  padding:9px 12px;color:var(--text);background:rgba(53,224,255,.04);
+}
+.m-banner.warn{border-color:rgba(255,184,77,.5);border-left-color:var(--warn);background:rgba(255,184,77,.05)}
+.m-banner.ok{border-color:rgba(61,255,162,.5);border-left-color:var(--ok);background:rgba(61,255,162,.05)}
+.m-actions{display:flex;gap:12px;margin-top:16px;justify-content:flex-end}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);z-index:110;
+  background:rgba(7,12,19,.95);border:1px solid var(--line);border-left:3px solid var(--cyan);
+  color:var(--text);font:400 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 16px;opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;max-width:80vw;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:1100px){
+  .layout{grid-template-columns:1fr;padding-top:80px}
+  .tb-crumb{display:none}
+  .tb-menu{display:none}
+  .tray .date{display:none}
+}
+@media (max-width:640px){
+  .os-grid{grid-template-columns:1fr 1fr}
+  .tele-row{grid-template-columns:96px 1fr 84px}
+  .tray svg.hide-sm{display:none}
+}
+
+/* ---------- REDUCED MOTION ---------- */
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+  .os-card::after{display:none}
+  .t-bar i,.m-progress-bar i{transition:none}
+}
+</style>
+</head>
+
+<body>
+
+<!-- BACKGROUND LAYERS -->
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="bg-scan" aria-hidden="true"></div>
+
+<!-- TOP PANEL -->
+<header class="topbar glass">
+  <div class="brand">
+    <span class="logo" data-text="NEXUS">NEXUS</span><span class="logo-os">//OS</span>
+  </div>
+  <span class="tb-sep" aria-hidden="true"></span>
+  <span class="tb-menu">GLOBAL MENU</span>
+
+  <div class="tb-crumb" aria-hidden="true"><b>HUB</b> // BOOT CONTROL</div>
+
+  <div class="tray">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 9.5a13.5 13.5 0 0 1 19 0M5.5 12.8a9 9 0 0 1 13 0M8.6 16a4.6 4.6 0 0 1 6.8 0"/><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7.5 17 16.5 12 20.5V3.5l5 4L7 16.5"/></svg>
+    <svg class="hide-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 19V5L7.5 9.5H4Z" fill="currentColor" stroke="none"/><path d="M15 9a4.5 4.5 0 0 1 0 6M17.5 6.8a8 8 0 0 1 0 10.4"/></svg>
+    <svg class="hide-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="8" width="17" height="8" rx="1.5"/><rect x="4.3" y="9.8" width="10" height="4.4" rx=".5" fill="currentColor" stroke="none"/><path d="M21.5 10.5v3" stroke-linecap="round"/></svg>
+    <span class="clock" id="clock">--:--</span>
+    <span class="date" id="date">--- -- ---</span>
+
+    <div class="power-wrap">
+      <button class="power-btn" id="powerBtn" aria-haspopup="true" aria-expanded="false" data-tip="POWER">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3.5v7"/><path d="M6.8 6.5a8 8 0 1 0 10.4 0"/></svg>
+      </button>
+      <div class="power-menu glass" id="powerMenu" hidden>
+        <div class="pm-title">POWER // SESSION</div>
+        <button class="pm-item" data-power="restart">
+          <span>RESTART → NEXUS HUB</span>
+          <small>returns through the boot chain · simulated here</small>
+        </button>
+        <button class="pm-item" data-power="rest">
+          <span>REST (SUSPEND)</span>
+          <small>suspend requires clean-power research (see roadmap)</small>
+        </button>
+        <button class="pm-item danger" data-power="shutdown">
+          <span>FULL SHUTDOWN</span>
+          <small>requires clean-power research (see roadmap)</small>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN GRID -->
+<main class="layout">
+
+  <!-- LEFT COLUMN: OS SELECTION -->
+  <section aria-labelledby="osHeading">
+    <div class="sec-h" id="osHeading">OPERATING SYSTEMS // SELECT TARGET
+      <span class="h-note">10 TARGETS · 1 PROVEN · 8 KEXEC · 1 RESEARCH</span>
+    </div>
+
+    <div class="os-grid">
+
+      <button class="os-card glass cut" data-os="macos" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="currentColor"><path d="M64 11c-7 1-13 6-15 13 7 .5 13-4 15-13z"/><path d="M49 30c5 0 10-3 15-3 12 0 22 10 22 26 0 19-13 37-24 37-5 0-7-3-13-3s-8 3-13 3C25 90 12 72 12 53c0-16 10-26 22-26 5 0 10 3 15 3z"/></svg>
+        </span>
+        <span class="os-name">macOS</span>
+        <span class="os-ver">Monterey 12.7.6 · XNU 21.6.0</span>
+        <span class="chip ok">PROVEN · FW 13.42</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="windows" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="currentColor"><path d="M14 20l34-5v33H14zM52 14l34-5v39H52zM14 52h34v33l-34-5zM52 52h34v39l-34-5z"/></svg>
+        </span>
+        <span class="os-name">Windows 11</span>
+        <span class="os-ver">24H2 · build 26100</span>
+        <span class="chip warn">RESEARCH · USB BOOT</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="ubuntu" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="30" stroke="currentColor" stroke-width="7"/><g fill="currentColor"><circle cx="50" cy="14" r="9"/><circle cx="82" cy="68" r="9"/><circle cx="18" cy="68" r="9"/></g></svg>
+        </span>
+        <span class="os-name">Ubuntu</span>
+        <span class="os-ver">24.04 LTS · GNOME 46</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="fedora" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><circle cx="50" cy="50" r="34"/><path d="M63 31c-11-2-17 4-17 14v21c0 8-5 12-13 11"/></svg>
+        </span>
+        <span class="os-name">Fedora</span>
+        <span class="os-ver">41 · kernel 6.11</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="arch" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="currentColor" fill-rule="evenodd"><path d="M50 12 88 86 50 70 12 86Z"/><path d="M50 30 72 74 50 64 28 74Z"/></svg>
+        </span>
+        <span class="os-name">Arch</span>
+        <span class="os-ver">rolling · linux-zen</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="debian" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M68 22a34 34 0 1 0 14 28"/><path d="M56 36a20 20 0 1 0 8 15"/></svg>
+        </span>
+        <span class="os-name">Debian</span>
+        <span class="os-ver">13 trixie · kernel 6.12</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="cachyos" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="currentColor"><path d="M58 10 30 56h16l-6 34 30-48H54Z"/></svg>
+        </span>
+        <span class="os-name">CachyOS</span>
+        <span class="os-ver">rolling · linux-cachyos</span>
+        <span class="chip warn">EXPERIMENTAL</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="nobara" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="currentColor"><g><ellipse cx="50" cy="27" rx="9" ry="16"/><ellipse cx="50" cy="27" rx="9" ry="16" transform="rotate(72 50 50)"/><ellipse cx="50" cy="27" rx="9" ry="16" transform="rotate(144 50 50)"/><ellipse cx="50" cy="27" rx="9" ry="16" transform="rotate(216 50 50)"/><ellipse cx="50" cy="27" rx="9" ry="16" transform="rotate(288 50 50)"/></g><circle cx="50" cy="50" r="7" fill="#0A121C"/></svg>
+        </span>
+        <span class="os-name">Nobara</span>
+        <span class="os-ver">41 · kernel 6.11-nobara</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="mint" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100"><path d="M50 85C27 66 26 40 50 15c24 25 23 51 0 70Z" fill="currentColor"/><path d="M50 26v50" stroke="rgba(7,11,18,.55)" stroke-width="4" stroke-linecap="round"/></svg>
+        </span>
+        <span class="os-name">Mint</span>
+        <span class="os-ver">22 wilma · kernel 6.8</span>
+        <span class="chip info">READY · KEXEC</span>
+      </button>
+
+      <button class="os-card glass cut" data-os="omarchy" aria-haspopup="dialog">
+        <span class="os-ico" aria-hidden="true">
+          <svg viewBox="0 0 100 100"><text x="50" y="68" text-anchor="middle" font-size="54" font-family="Share Tech Mono, monospace" fill="currentColor">&#937;</text></svg>
+        </span>
+        <span class="os-name">Omarchy</span>
+        <span class="os-ver">rolling · arch-based</span>
+        <span class="chip warn">EXPERIMENTAL</span>
+      </button>
+
+    </div>
+  </section>
+
+  <!-- RIGHT COLUMN -->
+  <aside aria-label="Hub panels">
+
+    <!-- BOOT CAMP // VOLUMES -->
+    <section class="panel glass" aria-labelledby="volHeading">
+      <h2 id="volHeading">BOOT CAMP // VOLUMES</h2>
+      <div class="p-sub"> Detected by nexus-bootctl scan</div>
+      <div class="vol-row">
+        <div class="vol-info">
+          <div class="vol-name">NEXUS-BOOT</div>
+          <div class="vol-sub">USB SSD · exFAT · 512 GB · mountable</div>
+        </div>
+        <span class="chip info">USB SSD</span>
+        <button class="btn tiny" data-toast="MOUNT SIMULATED — userspace mount requires nexus-fuse in Linux stage">MOUNT</button>
+      </div>
+      <div class="vol-row">
+        <div class="vol-info">
+          <div class="vol-name">WIN11-INSTALL</div>
+          <div class="vol-sub">USB SSD · NTFS · 256 GB · windows research target</div>
+        </div>
+        <span class="chip warn">RESEARCH</span>
+        <button class="btn tiny" data-toast="MOUNT SIMULATED — NTFS RW requires kernel driver in payload stage">MOUNT</button>
+      </div>
+      <div class="vol-row">
+        <div class="vol-info">
+          <div class="vol-name">PS5 INTERNAL NVME</div>
+          <div class="vol-sub">825 GB · stage-locked by nexus-bootd</div>
+        </div>
+        <span class="chip magenta lock-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="1.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+          LOCKED BY POLICY
+        </span>
+      </div>
+    </section>
+
+    <!-- PERMISSION GATE -->
+    <section class="panel glass" aria-labelledby="gateHeading">
+      <h2 id="gateHeading">PERMISSION GATE // GUEST REQUESTS</h2>
+      <div class="p-sub"> Live request queue · policy.json</div>
+      <div style="height:12px" aria-hidden="true"></div>
+      <div class="gate-row" data-state="waiting">
+        <div class="gate-txt">[terminal-mac] wants read /data/Finder</div>
+        <div class="gate-status">WAITING</div>
+        <div class="gate-actions">
+          <button class="btn tiny okb" data-action="approved">APPROVE</button>
+          <button class="btn tiny magb" data-action="denied">DENY</button>
+        </div>
+      </div>
+      <div class="gate-row" data-state="waiting">
+        <div class="gate-txt">[guestos-py] wants write /data/Voice/cache</div>
+        <div class="gate-status">WAITING</div>
+        <div class="gate-actions">
+          <button class="btn tiny okb" data-action="approved">APPROVE</button>
+          <button class="btn tiny magb" data-action="denied">DENY</button>
+        </div>
+      </div>
+      <div class="gate-row" data-state="waiting">
+        <div class="gate-txt">[finder-guest] wants read /data/Telemetry</div>
+        <div class="gate-status">WAITING</div>
+        <div class="gate-actions">
+          <button class="btn tiny okb" data-action="approved">APPROVE</button>
+          <button class="btn tiny magb" data-action="denied">DENY</button>
+        </div>
+      </div>
+      <div class="p-note"><b>default deny</b> — guests share nothing unless you approve (policy.json)</div>
+    </section>
+
+    <!-- CLUSTER TELEMETRY -->
+    <section class="panel glass" aria-labelledby="teleHeading">
+      <h2 id="teleHeading">CLUSTER TELEMETRY</h2>
+      <div class="p-sub"> SoC-scope mock · updates every 2 s</div>
+      <div style="height:10px" aria-hidden="true"></div>
+      <div class="tele-row">
+        <span class="t-label">CPU · 16 THREADS</span>
+        <div class="t-bar"><i id="barCpu"></i></div>
+        <span class="t-val" id="valCpu">--</span>
+      </div>
+      <div class="tele-row">
+        <span class="t-label">VRAM POOL</span>
+        <div class="t-bar"><i id="barVram"></i></div>
+        <span class="t-val" id="valVram">--</span>
+      </div>
+      <div class="tele-row">
+        <span class="t-label">SOC TEMP</span>
+        <div class="t-bar"><i id="barTemp"></i></div>
+        <span class="t-val" id="valTemp">--</span>
+      </div>
+      <div class="tele-row">
+        <span class="t-label">ETHERNET LINK</span>
+        <div class="t-bar"><i id="barEth"></i></div>
+        <span class="t-val" id="valEth">--</span>
+      </div>
+    </section>
+
+    <!-- VOICE // DIC -->
+    <section class="panel glass" aria-labelledby="voiceHeading">
+      <h2 id="voiceHeading">VOICE // DIC</h2>
+      <div class="p-sub"> DualSense Integrated Command Interface</div>
+      <div class="voice-out" id="voiceOut" aria-live="polite">
+        <div class="vline sys">nexus&gt; DIC ready — vocabulary: boot · power · gate</div>
+      </div>
+      <div class="voice-line">
+        <span class="prompt">nexus&gt;</span>
+        <input id="voiceIn" type="text" autocomplete="off" spellcheck="false"
+               placeholder="say a command…" aria-label="Voice command input">
+      </div>
+      <div class="vchips">
+        <button class="vchip" data-cmd="boot arch">boot arch</button>
+        <button class="vchip" data-cmd="power rest">power rest</button>
+        <button class="vchip" data-cmd="gate approve">gate approve</button>
+      </div>
+    </section>
+
+  </aside>
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  NEXUS-OS research UI mock · mirrors nexus-bootctl states · not all paths boot on real hardware yet · see /docs
+  <div class="repos">repos: rodri0x/ps5-hackintosh · PS5GreenApple/NEXUS-hub · flatz/ps5-payload-dev</div>
+</footer>
+
+<!-- DOCK -->
+<nav class="dock glass" aria-label="Application dock">
+  <button class="dock-btn" data-app="FINDER" data-tip="FINDER">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M9 8.5v3.5M15 8.5v3.5M8.5 15.5c2 1.6 5 1.6 7 0"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn running" data-app="TERMINAL" data-tip="TERMINAL">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m7 10 3 2.5L7 15M12.5 15.5H17"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn active" data-app="NEXUS" data-tip="NEXUS HUB">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 20 7.4v9.2L12 21.2 4 16.6V7.4Z"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn running" data-app="BOOT CAMP" data-tip="BOOT CAMP">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18.5h16"/><path d="M12 4.5v9M8.5 10 12 13.5 15.5 10"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn" data-app="SETTINGS" data-tip="SETTINGS">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn" data-app="VOICE" data-tip="VOICE // DIC">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="9.5" y="3" width="5" height="10" rx="2.5"/><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5V21M8.5 21h7"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+  <button class="dock-btn" data-app="GUEST OS" data-tip="GUEST OS">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.5-4 4-5.5 7-5.5s5.5 1.5 7 5.5"/></svg>
+    <span class="run-dot" aria-hidden="true"></span>
+  </button>
+</nav>
+
+<!-- BOOT MODAL -->
+<div class="modal-backdrop" id="bootModal" hidden>
+  <div class="modal glass cut" role="dialog" aria-modal="true" aria-labelledby="mTitle" tabindex="-1" id="modalPanel">
+    <div class="m-head">
+      <div>
+        <div class="m-eyebrow" id="mChain">CHAIN //</div>
+        <h3 id="mTitle">TARGET</h3>
+        <div class="m-ver" id="mVer"></div>
+      </div>
+      <span class="chip info" id="mChip">--</span>
+      <button class="m-close" id="mClose" aria-label="Close boot dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+      </button>
+    </div>
+    <ol class="m-steps" id="mSteps"></ol>
+    <div class="m-progress">
+      <div class="m-progress-bar"><i id="mBar"></i></div>
+      <span class="m-stage" id="mStage">STAGE 0/0</span>
+    </div>
+    <div class="m-banner" id="mBanner"></div>
+    <div class="m-actions">
+      <button class="btn primary" id="mReal" disabled data-tip="requires jailbroken PS5 with nexus-bootd in Linux stage">BOOT FOR REAL</button>
+      <button class="btn ghost" id="mClose2">ABORT</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   NEXUS HUB — demo logic (vanilla JS)
+   ============================================================ */
+'use strict';
+var $ = function(s){ return document.querySelector(s); };
+var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+/* ---------- CLOCK ---------- */
+function tickClock(){
+  var d = new Date();
+  var hh = String(d.getHours()).padStart(2,'0');
+  var mm = String(d.getMinutes()).padStart(2,'0');
+  $('#clock').textContent = hh + ':' + mm;
+  var dt = d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+  $('#date').textContent = dt.toUpperCase();
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ---------- TOAST ---------- */
+var toastTimer = null;
+function showToast(msg){
+  var t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+$$('[data-toast]').forEach(function(btn){
+  btn.addEventListener('click', function(){ showToast(btn.getAttribute('data-toast')); });
+});
+
+/* ---------- POWER MENU ---------- */
+var powerBtn = $('#powerBtn'), powerMenu = $('#powerMenu');
+function setPowerMenu(open){
+  powerMenu.hidden = !open;
+  powerBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+powerBtn.addEventListener('click', function(e){
+  e.stopPropagation();
+  setPowerMenu(powerMenu.hidden);
+});
+document.addEventListener('click', function(e){
+  if (!powerMenu.hidden && !powerMenu.contains(e.target) && e.target !== powerBtn) setPowerMenu(false);
+});
+$$('.pm-item').forEach(function(item){
+  item.addEventListener('click', function(){
+    setPowerMenu(false);
+    var mode = item.getAttribute('data-power');
+    if (mode === 'restart'){
+      showToast('RESTART → NEXUS HUB · simulated — real path re-enters via boot chain');
+    } else if (mode === 'rest'){
+      showToast('REST (SUSPEND) BLOCKED · clean-power research pending — see /docs/roadmap');
+    } else {
+      showToast('FULL SHUTDOWN BLOCKED · clean-power research pending — see /docs/roadmap');
+    }
+  });
+});
+
+/* ---------- OS CHAIN DATA (10 entries) ---------- */
+var LINUX_BANNER = 'SIMULATION — kexec-direct executes inside the Linux payload stage of the jailbroken PS5 · verify per-distro notes';
+var OS_DATA = {
+  macos: {
+    name:'macOS Monterey', ver:'12.7.6 · XNU 21.6.0', chip:'PROVEN · FW 13.42', cls:'ok',
+    chain:'CHAIN // CRASH-HOP → UEFI PAYLOAD → OPENCORE', voiceChain:'crash-hop→uefi→opencore',
+    steps:[
+      'kexec_file_load: staging stage1 (crash kernel)…',
+      'sysrq-c: crash hop armed…',
+      'stage1: identity map + IOMMU off…',
+      'EDK2 UefiPayload handoff…',
+      'OpenCore: ACPI patches applied…',
+      'boot.efi → XNU 21.6.0…',
+      'macOS desktop ✓'
+    ],
+    banner:'SIMULATION — on real FW 13.42 hardware this chain is rodri0x/ps5-hackintosh proven'
+  },
+  windows: {
+    name:'Windows 11', ver:'24H2 · build 26100', chip:'RESEARCH · USB BOOT', cls:'warn',
+    chain:'CHAIN // UEFIPAYLOAD → BOOTMGR → WINLOAD', voiceChain:'uefi-payload→bootmgr (research)',
+    steps:[
+      'usb target check: NEXUS-BOOT (exFAT · 512 GB) present…',
+      'stage1: EDK2 UefiPayload staged via kexec…',
+      'UEFI env: locate EFI/Microsoft/Boot/bootmgfw.efi…',
+      'Windows Boot Manager: BCD parsed · winload.efi…',
+      'kernel + drivers loaded — GPU accel absent (research)…',
+      'Windows 11 session ✓ — research state'
+    ],
+    banner:'SIMULATION — research chain: no GPU accel · USB storage required · not for daily use · see /docs/roadmap'
+  },
+  ubuntu: {
+    name:'Ubuntu', ver:'24.04 LTS · GNOME 46', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=ubuntu — manifest ok…',
+      'kexec -l /boot/vmlinuz-6.8.0-generic --initrd initrd.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Ubuntu 24.04 LTS userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  fedora: {
+    name:'Fedora', ver:'41 · kernel 6.11', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=fedora — manifest ok…',
+      'kexec -l /boot/vmlinuz-6.11.4-fc41 --initrd initramfs-6.11.4.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Fedora 41 userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  arch: {
+    name:'Arch', ver:'rolling · linux-zen', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=arch — manifest ok…',
+      'kexec -l /boot/vmlinuz-linux --initrd initramfs-linux.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Arch Linux userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  debian: {
+    name:'Debian', ver:'13 trixie · kernel 6.12', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=debian — manifest ok…',
+      'kexec -l /boot/vmlinuz-6.12.1-amd64 --initrd initrd.img-6.12.1…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Debian 13 userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  cachyos: {
+    name:'CachyOS', ver:'rolling · linux-cachyos', chip:'EXPERIMENTAL', cls:'warn',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct (experimental)',
+    steps:[
+      'nexus-bootctl: resolve target=cachyos — experimental manifest…',
+      'kexec -l /boot/vmlinuz-linux-cachyos --initrd initramfs-linux-cachyos.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'CachyOS userspace ✓ — unverified on FW 13.42'
+    ],
+    banner:'SIMULATION — experimental target: expect regressions · see /docs/roadmap before flashing'
+  },
+  nobara: {
+    name:'Nobara', ver:'41 · kernel 6.11-nobara', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=nobara — manifest ok…',
+      'kexec -l /boot/vmlinuz-6.11.8-nobara --initrd initramfs-6.11.8-nobara.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Nobara 41 userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  mint: {
+    name:'Mint', ver:'22 wilma · kernel 6.8', chip:'READY · KEXEC', cls:'info',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct',
+    steps:[
+      'nexus-bootctl: resolve target=mint — manifest ok…',
+      'kexec -l /boot/vmlinuz-6.8.0-generic --initrd initrd.img-6.8.0…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Linux Mint 22 userspace ✓'
+    ],
+    banner: LINUX_BANNER
+  },
+  omarchy: {
+    name:'Omarchy', ver:'rolling · arch-based', chip:'EXPERIMENTAL', cls:'warn',
+    chain:'CHAIN // KEXEC-DIRECT · LINUX PAYLOAD STAGE', voiceChain:'kexec-direct (experimental)',
+    steps:[
+      'nexus-bootctl: resolve target=omarchy — experimental manifest…',
+      'kexec -l /boot/vmlinuz-linux --initrd initramfs-linux-omarchy.img…',
+      'kexec -e: handoff · PS5 firmware re-init skipped…',
+      'initramfs: rootfs unlocked · /data mounts applied…',
+      'Omarchy userspace ✓ — unverified on FW 13.42'
+    ],
+    banner:'SIMULATION — experimental target: expect regressions · see /docs/roadmap before flashing'
+  }
+};
+
+/* ---------- BOOT MODAL ---------- */
+var modal = $('#bootModal'), modalPanel = $('#modalPanel');
+var modalTimer = null, lastFocus = null;
+
+function openModal(key){
+  var d = OS_DATA[key];
+  if (!d) return;
+  lastFocus = document.activeElement;
+
+  $('#mChain').textContent = d.chain;
+  $('#mTitle').textContent = d.name;
+  $('#mVer').textContent = d.ver;
+  var chip = $('#mChip');
+  chip.textContent = d.chip;
+  chip.className = 'chip ' + d.cls;
+  var banner = $('#mBanner');
+  banner.textContent = d.banner;
+  banner.className = 'm-banner ' + (d.cls === 'warn' ? 'warn' : d.cls === 'ok' ? 'ok' : '');
+
+  var list = $('#mSteps');
+  list.innerHTML = '';
+  d.steps.forEach(function(txt, i){
+    var li = document.createElement('li');
+    li.className = 'm-step';
+    var idx = document.createElement('span');
+    idx.className = 'm-idx';
+    idx.textContent = (i+1) + '/' + d.steps.length;
+    var body = document.createElement('span');
+    body.className = 'm-txt';
+    body.textContent = txt;
+    li.appendChild(idx); li.appendChild(body);
+    list.appendChild(li);
+  });
+  $('#mBar').style.width = '0%';
+  $('#mStage').textContent = 'STAGE 0/' + d.steps.length;
+
+  modal.hidden = false;
+  var steps = $$('#mSteps .m-step');
+  var n = 0;
+  modalTimer = setInterval(function(){
+    if (n >= steps.length){
+      clearInterval(modalTimer); modalTimer = null;
+      return;
+    }
+    var li = steps[n];
+    li.classList.add('lit');
+    if (li.textContent.indexOf('✓') !== -1) li.classList.add('done');
+    n++;
+    $('#mBar').style.width = (n / steps.length * 100) + '%';
+    $('#mStage').textContent = 'STAGE ' + n + '/' + steps.length;
+  }, 600);
+
+  modalPanel.focus();
+}
+function closeModal(){
+  modal.hidden = true;
+  if (modalTimer){ clearInterval(modalTimer); modalTimer = null; }
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+$$('.os-card').forEach(function(card){
+  card.addEventListener('click', function(){ openModal(card.getAttribute('data-os')); });
+});
+$('#mClose').addEventListener('click', closeModal);
+$('#mClose2').addEventListener('click', closeModal);
+modal.addEventListener('mousedown', function(e){ if (e.target === modal) closeModal(); });
+$('#mReal').addEventListener('click', function(){ /* disabled by design */ });
+
+/* ---------- PERMISSION GATE ---------- */
+function setGate(row, action){
+  row.setAttribute('data-state', action);
+  row.querySelector('.gate-status').textContent = action === 'approved' ? 'APPROVED' : 'DENIED';
+  row.querySelectorAll('.gate-actions button').forEach(function(b){ b.disabled = true; });
+}
+$$('.gate-row').forEach(function(row){
+  row.querySelectorAll('.gate-actions button').forEach(function(btn){
+    btn.addEventListener('click', function(){ setGate(row, btn.getAttribute('data-action')); });
+  });
+});
+
+/* ---------- TELEMETRY (random walk, 2 s) ---------- */
+var TELE = {
+  cpu : { v:34,  min:8,   max:96,  step:7,   fmt:function(v){ return Math.round(v) + '%'; },      bar:function(v){ return v; } },
+  vram: { v:12.5,min:9,   max:15.7,step:0.5, fmt:function(v){ return v.toFixed(1) + ' / 16 GB'; }, bar:function(v){ return v / 16 * 100; } },
+  temp: { v:61,  min:48,  max:78,  step:1.6, fmt:function(v){ return Math.round(v) + '\u00B0C'; }, bar:function(v){ return (v - 40) / 45 * 100; } },
+  eth : { v:940, min:180, max:940, step:40,  fmt:function(v){ return Math.round(v) + ' Mbps'; },  bar:function(v){ return v / 1000 * 100; } }
+};
+function walk(t){
+  t.v += (Math.random() - 0.5) * 2 * t.step;
+  if (t.v < t.min) t.v = t.min + Math.random() * t.step;
+  if (t.v > t.max) t.v = t.max - Math.random() * t.step;
+  return t.v;
+}
+function updateTelemetry(){
+  var cpu = walk(TELE.cpu), vram = walk(TELE.vram), temp = walk(TELE.temp), eth = walk(TELE.eth);
+  $('#valCpu').textContent  = TELE.cpu.fmt(cpu);
+  $('#valVram').textContent = TELE.vram.fmt(vram);
+  $('#valTemp').textContent = TELE.temp.fmt(temp);
+  $('#valEth').textContent  = TELE.eth.fmt(eth);
+  $('#barCpu').style.width  = TELE.cpu.bar(cpu) + '%';
+  $('#barVram').style.width = TELE.vram.bar(vram) + '%';
+  $('#barTemp').style.width = TELE.temp.bar(temp) + '%';
+  $('#barEth').style.width  = TELE.eth.bar(eth) + '%';
+  $('#barTemp').className = temp > 70 ? 'warnbar' : '';
+}
+updateTelemetry();
+setInterval(updateTelemetry, 2000);
+
+/* ---------- VOICE // DIC (intent parser) ---------- */
+var voiceOut = $('#voiceOut'), voiceIn = $('#voiceIn');
+function vline(text, cls, prefix){
+  var div = document.createElement('div');
+  div.className = 'vline' + (cls ? ' ' + cls : '');
+  if (prefix){
+    var p = document.createElement('span');
+    p.className = 'vu';
+    p.textContent = 'nexus> ';
+    div.appendChild(p);
+  }
+  div.appendChild(document.createTextNode(text));
+  voiceOut.appendChild(div);
+  while (voiceOut.children.length > 12) voiceOut.removeChild(voiceOut.firstChild);
+  voiceOut.scrollTop = voiceOut.scrollHeight;
+}
+var VOICE_TARGETS = { mac:'macos', macos:'macos', monterey:'macos',
+  win:'windows', windows:'windows', win11:'windows',
+  ubuntu:'ubuntu', fedora:'fedora', arch:'arch', debian:'debian',
+  cachyos:'cachyos', nobara:'nobara', mint:'mint', omarchy:'omarchy' };
+
+function parseVoice(raw){
+  var cmd = raw.trim().toLowerCase();
+  if (!cmd) return;
+  vline(cmd, '', true);
+
+  setTimeout(function(){
+    var m;
+    if ((m = cmd.match(/^boot\s+([a-z0-9]+)/))){
+      var key = VOICE_TARGETS[m[1]];
+      if (key){
+        var d = OS_DATA[key];
+        vline('intent: boot target=' + m[1] + ' \u2192 chain: ' + d.voiceChain + ' \u00B7 confidence 0.93', 'sys');
+        vline('opening boot confirm for ' + d.name + '…', 'ok');
+        openModal(key);
+      } else {
+        vline('intent: boot target=' + m[1] + ' \u00B7 no such target in manifest \u2014 try: boot arch', 'warn');
+      }
+      return;
+    }
+    if (cmd.indexOf('restart') !== -1){
+      vline('intent: power mode=restart \u2192 return to NEXUS Hub via boot chain \u00B7 confidence 0.91', 'sys');
+      return;
+    }
+    if (cmd.indexOf('rest') !== -1 || cmd.indexOf('suspend') !== -1){
+      vline('intent: power mode=rest \u2192 blocked: clean-power research required (roadmap R-04) \u00B7 confidence 0.88', 'warn');
+      return;
+    }
+    if (cmd.indexOf('shutdown') !== -1 || cmd.indexOf('power off') !== -1){
+      vline('intent: power mode=shutdown \u2192 blocked: clean-power research required (roadmap R-04) \u00B7 confidence 0.88', 'warn');
+      return;
+    }
+    if ((m = cmd.match(/^gate\s+(approve|deny|denied)/))){
+      var act = m[1] === 'approve' ? 'approved' : 'denied';
+      var waiting = $$('.gate-row[data-state="waiting"]');
+      if (waiting.length){
+        setGate(waiting[0], act);
+        vline('intent: gate action=' + (act === 'approved' ? 'approve' : 'deny') +
+              ' \u2192 applied to oldest WAITING request \u00B7 confidence 0.90', 'sys');
+      } else {
+        vline('intent: gate action=' + (act === 'approved' ? 'approve' : 'deny') +
+              ' \u00B7 queue empty \u2014 nothing to resolve \u00B7 confidence 0.90', 'sys');
+      }
+      return;
+    }
+    vline('intent: unrecognized (confidence 0.41) \u2014 vocabulary: boot \u00B7 power \u00B7 gate (try: boot arch)', 'warn');
+  }, 180);
+}
+voiceIn.addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){
+    parseVoice(voiceIn.value);
+    voiceIn.value = '';
+  }
+});
+$$('.vchip').forEach(function(chip){
+  chip.addEventListener('click', function(){
+    voiceIn.value = chip.getAttribute('data-cmd');
+    parseVoice(voiceIn.value);
+    voiceIn.value = '';
+    voiceIn.focus();
+  });
+});
+
+/* ---------- DOCK ---------- */
+$$('.dock-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    $$('.dock-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    showToast('FOCUS // ' + btn.getAttribute('data-app') + ' — demo shell routes to VOICE panel');
+  });
+});
+
+/* ---------- GLOBAL KEYS ---------- */
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){
+    if (!modal.hidden) closeModal();
+    else if (!powerMenu.hidden) setPowerMenu(false);
+  }
+});
+</script>
+</body>
+</html>

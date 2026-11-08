@@ -1,0 +1,49 @@
+# NEXUS-OS live flavor — package set (minimal by design; snappy on modest hw)
+base
+linux
+linux-firmware
+mkinitcpio
+systemd-sysvcompat
+
+# boot orchestration
+kexec-tools
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+
+# KDE Plasma (NEXUS Metro host) — lean set, native apps only
+plasma-desktop
+plasma-nm
+konsole
+dolphin
+kate
+kwin
+plasma-pa
+bluedevil
+powerdevil
+discover
+
+# input / audio (mandated working set)
+xf86-input-libinput
+pipewire
+pipewire-alsa
+pipewire-pulse
+wireplumber
+alsa-firmware
+sof-firmware
+
+# network
+networkmanager
+iwd
+
+# voice (DIC) runtime deps
+portaudio
+
+# live utility
+openssh
+curl
+wget
+git
+python
+rsync

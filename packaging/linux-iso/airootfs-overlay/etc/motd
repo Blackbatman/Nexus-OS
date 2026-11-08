@@ -1,0 +1,8 @@
+NEXUS-OS live (Linux flavor)  —  https://github.com/ (see repo docs)
+
+  The hub really boots:   /usr/local/bin/nexus-boot-select --dry-run
+  Permission gate:        systemctl status nexus-gate
+  Voice (DIC):            nexus-voice --selftest
+
+Honest status: macOS chain PROVEN upstream (FW 13.42) · Linux READY ·
+Windows RESEARCH · audio/WiFi/BT/power = see docs/04-hardware-support.md

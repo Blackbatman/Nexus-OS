@@ -1,0 +1,18 @@
+[Unit]
+Description=NEXUS-OS Permission Gate (default-deny guest broker)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/nexus/gate-daemon.py --policy /etc/nexus/policy.json
+Restart=on-failure
+RestartSec=3
+# The gate must never be a network-exposed service by accident:
+IPAddressDeny=any
+IPAddressAllow=localhost
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

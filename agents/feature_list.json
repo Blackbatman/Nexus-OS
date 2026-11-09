@@ -93,7 +93,7 @@
    "name": "PS5GreenApple v2 real-boot patch spec (nexus-hub/greapple-v2/)",
    "description": "Precise patch plan: NEXUS writes boot-select.json, nexus-bootd in Linux stage consumes it, Boot Camp reads real volumes via lsblk.",
    "passes": true,
-   "evidence": "docs + spec reviewed by architect; code patches pending real repo checkout (F17)",
+   "evidence": "docs + spec reviewed by architect; patches delivered and MERGED upstream as PS5GreenApple v2.1.0 (e597543, release published 2026-11-09)",
    "owner": "ui-builder"
   },
   {

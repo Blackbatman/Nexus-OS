@@ -1,0 +1,53 @@
+name: Release NEXUS-OS
+
+# Runs the beta-team regression suite (L0-L4) and packages release assets
+# every time a GitHub Release is published. Also runnable manually via
+# workflow_dispatch to validate packaging without publishing a release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Regression suite + package release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies (ripgrep)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ripgrep
+
+      - name: Regression suite (beta-team/run-tests.sh, L0-L4)
+        run: bash beta-team/run-tests.sh
+
+      - name: Package source + docs bundles
+        run: |
+          TAG="${GITHUB_REF_NAME:-dev}"
+          mkdir -p dist
+          git archive --format=zip --prefix="NEXUS-OS-${TAG}/" -o "dist/NEXUS-OS-${TAG}-source.zip" HEAD
+          git archive --format=zip --prefix="NEXUS-OS-${TAG}-docs/" -o "dist/NEXUS-OS-${TAG}-docs.zip" HEAD:docs
+          ls -la dist/
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-os-bundles
+          path: dist/
+
+      - name: Attach bundles to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber --repo "${GITHUB_REPOSITORY}"
+          echo "Release assets now attached:"
+          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name'

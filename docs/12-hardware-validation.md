@@ -1,4 +1,4 @@
-# 11 — Hardware Validation Matrix (F18 operator runbook)
+# 12 — Hardware Validation Matrix (F18 operator runbook)
 
 This document turns the L6 layer of `docs/06-testing-plan.md` into a
 concrete, repeatable procedure. **Nothing here runs by itself**: every

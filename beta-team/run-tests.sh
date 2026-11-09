@@ -130,11 +130,19 @@ fi
 chk "greapple patch file present" test -s patches/PS5GreenApple/greapple-v2.1.patch
 GA="$ROOT/third_party/PS5GreenApple"
 if [ -d "$GA/.git" ]; then
-  chk "greapple: patch applies to fresh clone" bash -c "
+  if [ -f "$GA/src/nexus_boot.c" ]; then
+    # Upstream PS5GreenApple >= v2.1.0 already carries greapple-v2 (the
+    # patch was merged there), so "applies to fresh clone" is history:
+    # assert the marker module instead.
+    chk "greapple: upstream carries v2.1.0 (nexus_boot.c committed)" \
+        grep -q "int nexus_write_select" "$GA/src/nexus_boot.c"
+  else
+    chk "greapple: patch applies to fresh clone" bash -c "
     set -e; T=\$(mktemp -d)
     git clone --quiet --depth 1 '$GA' \"\$T/ga\" 2>/dev/null
     git -C \"\$T/ga\" apply --check '$ROOT/patches/PS5GreenApple/greapple-v2.1.patch'
     rm -rf \"\$T\""
+  fi
   chk "greapple: host build (make host)" make -C "$GA" host
   chk "greapple: nexus_boot unit tests (F17 definition of done)" make -C "$GA" nexus-unit
   chk "greapple: shots pipeline + 3 new PNGs" bash -c "

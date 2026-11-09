@@ -10,7 +10,7 @@
 | L3 Data | JSON/YAML/XML validity (feature list, policy, backstop, autounattend) | python json/xml | same |
 | L4 Visual | hub demo regression vs baseline | BackstopJS / PIL differ | `tools/backstop/run-visual-check.sh` |
 | L5 RE | build sweeps + drift diffs of stage artifacts | REA + radare2 | `tools/rea-adapter`, `tools/radare2` |
-| L6 Hardware | chains M/L/W on launch-model PS5 @13.42 baseline (+ optional 13.60 console for the raised ceiling, entry per docs/09); ktty logs; matrix update | **APPROVAL GATED (F18)** | operator |
+| L6 Hardware | chains M/L/W on launch-model PS5 @13.42 baseline (+ optional 13.60 console for the raised ceiling, entry per docs/09); ktty logs; matrix update | **APPROVAL GATED (F18)** — runbook `docs/12-hardware-validation.md`, harness `tools/hwtest/` (capture / validate / delta) | operator |
 
 ## run-tests.sh contract
 
@@ -39,3 +39,10 @@ re-baseline with a note in the report — never silently.
 Per chain: boot attempt, wall time, last-good step, ktty tail, hardware deltas
 → append row to `docs/04-hardware-support.md` with the log reference. A chain
 is only ever upgraded to READY/PROVEN by hardware evidence, never by review.
+
+The full procedure — console tracks (T1 13.42 baseline / T2 13.60 ceiling /
+T3 14.x watch), attempt matrix, checkpoint tables, verdict rules
+(PASS/PARTIAL/FAIL) and the delta taxonomy — lives in
+`docs/12-hardware-validation.md`; the operator tools are `tools/hwtest/`
+(`capture-ktty.sh`, `validate-logs.py`, `delta-report.py`, all self-tested
+in `beta-team/run-tests.sh`).

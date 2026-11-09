@@ -146,10 +146,10 @@
   },
   {
    "id": "F18",
-   "name": "Real-hardware validation matrix",
-   "description": "Run chains M/L/W on a launch-model PS5 (13.42 baseline; optional 13.60 console for the raised ceiling); capture ktty logs; file hardware support deltas.",
+   "name": "Real-hardware validation runbook + harness",
+   "description": "Operator runbook + harness for real-hardware validation: docs/12-hardware-validation.md (console tracks T1 13.42 baseline / T2 13.60 ceiling / T3 14.x watch-only, attempt matrix, checkpoint tables, PASS/PARTIAL/FAIL verdict rules, delta taxonomy) and tools/hwtest/ (capture-ktty.sh session packaging, validate-logs.py checkpoint validator with 8 synthetic selftest sessions, delta-report.py docs/04 evidence form). Actual console runs remain approval-gated and await an operator PS5.",
    "passes": false,
-   "evidence": "APPROVAL GATE: needs operator PS5 + jailbreak entry (Relapse/Byepervisor on 13.x); see docs/06-testing-plan.md and docs/09-firmware-coverage.md",
+   "evidence": "harness delivered 2026-11-09: validate-logs.py --selftest 8/8, delta-report.py --selftest 3/3, capture-ktty.sh bash -n + dry-run PASS, runbook present; wired into beta-team run-tests.sh (F18 block). HARDWARE RUNS PENDING \u2014 operator console + approved entry (Relapse/Byepervisor) required; per docs/12 \u00a71 no run before proposal+approval",
    "owner": "beta-qa"
   },
   {

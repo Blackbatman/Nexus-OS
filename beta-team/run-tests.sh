@@ -157,6 +157,19 @@ else
   skip "F17 greapple checks (build/unit/shots/reader)" "third_party/PS5GreenApple not cloned (run agents/init.sh)"
 fi
 
+# --------------------------------------------- F18 hardware validation harness
+# docs/12 + tools/hwtest: operator runbook + capture/validate/delta tools.
+# Hardware runs themselves stay approval-gated; these checks cover the harness.
+chk "hwtest: capture script parses" bash -n tools/hwtest/capture-ktty.sh
+chk "hwtest: capture dry-run flow" bash tools/hwtest/capture-ktty.sh --dry-run
+chk "hwtest: validate-logs selftest (8 synthetic sessions)" python3 tools/hwtest/validate-logs.py --selftest
+chk "hwtest: delta-report selftest (form enum + render)" python3 tools/hwtest/delta-report.py --selftest
+chk "hwtest: runbook present (tracks, checkpoints, verdicts)" bash -c "
+  test -s docs/12-hardware-validation.md && \
+  grep -q 'T2 (ceiling)' docs/12-hardware-validation.md && \
+  grep -q 'capture-ktty.sh' docs/12-hardware-validation.md && \
+  grep -q 'PARTIAL' docs/12-hardware-validation.md && echo runbook ok"
+
 # ---------------------------------------------------------------- summary
 printf '%s\n' "${ROWS[@]}"
 echo "────────────────────────────────────────────"

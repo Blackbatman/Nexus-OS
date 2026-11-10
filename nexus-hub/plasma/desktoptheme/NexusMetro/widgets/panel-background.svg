@@ -1,0 +1,20 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+<rect id="hint-stretch-borders" x="0" y="0" width="32" height="32" fill="none" opacity="0"/>
+<rect id="hint-top-margin" x="16" y="0" width="1" height="4.8" opacity="0"/>
+<rect id="hint-bottom-margin" x="16" y="31" width="1" height="4.8" opacity="0"/>
+<rect id="hint-left-margin" x="0" y="16" width="4.8" height="1" opacity="0"/>
+<rect id="hint-right-margin" x="31" y="16" width="4.8" height="1" opacity="0"/>
+<rect id="shadow-hint-top-margin" x="16" y="0" width="1" height="1" opacity="0"/>
+<rect id="shadow-hint-bottom-margin" x="16" y="31" width="1" height="1" opacity="0"/>
+<rect id="shadow-hint-left-margin" x="0" y="16" width="1" height="1" opacity="0"/>
+<rect id="shadow-hint-right-margin" x="31" y="16" width="1" height="1" opacity="0"/>
+<g id="topleft"><rect x="0" y="0" width="8" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" rx="4" ry="4" clip-path="inset(0 0 7px 7px)"/></g>
+<g id="top"><rect x="8" y="0" width="16" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" clip-path="inset(0 0 2px 0)"/></g>
+<g id="topright"><rect x="24" y="0" width="8" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" rx="4" ry="4" clip-path="inset(0 7px 7px 0)"/></g>
+<g id="left"><rect x="0" y="8" width="8" height="16" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" clip-path="inset(0 2px 0 0)"/></g>
+<g id="center"><rect x="8" y="8" width="16" height="16" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" clip-path="inset(0 2px 2px 0)"/></g>
+<g id="right"><rect x="24" y="8" width="8" height="16" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" clip-path="inset(0 0 0 2px)"/></g>
+<g id="bottomleft"><rect x="0" y="24" width="8" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" rx="4" ry="4" clip-path="inset(7px 7px 0 0)"/></g>
+<g id="bottom"><rect x="8" y="24" width="16" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" clip-path="inset(2px 0 0 0)"/></g>
+<g id="bottomright"><rect x="24" y="24" width="8" height="8" fill="rgba(13,20,36,0.86)" stroke="rgba(53,224,255,0.55)" stroke-width="0.8" rx="4" ry="4" clip-path="inset(7px 0 0 7px)"/></g>
+</svg>

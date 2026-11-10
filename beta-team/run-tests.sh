@@ -89,6 +89,72 @@ p = json.load(open('nested-os/permission-gate/policy.json'))
 assert p['default'] == 'deny' and 'terminal-mac' in p['guests']
 print('policy ok')"
 
+# --------------------------------------------- F22 curriculum probes (docs/13)
+chk "probes: selftest (5 JSON contracts)" bash tools/hwtest/probes/probe-platform.sh --selftest
+chk "probes: dry-run safe (no writes)" bash tools/hwtest/probes/probe-platform.sh --dry-run
+
+# --------------------------------------------- F23 NEXUS Metro identity (docs/14)
+chk "metro: look-and-feel metadata valid" python3 -c "
+import json
+d = json.load(open('nexus-hub/plasma/look-and-feel/com.nexusos.metro/metadata.json'))
+assert d['KPackageStructure'] == 'Plasma/LookAndFeel'
+assert d['KPlugin']['Id'] == 'com.nexusos.metro'
+print('look-and-feel ok')"
+chk "metro: desktoptheme metadata valid" python3 -c "
+import json
+d = json.load(open('nexus-hub/plasma/desktoptheme/NexusMetro/metadata.json'))
+assert d['KPackageStructure'] == 'Plasma/DesktopTheme'
+assert d['KPlugin']['Id'] == 'NexusMetro'
+print('desktoptheme ok')"
+chk "metro: theme SVGs parse + 9-slice ids" python3 -c "
+import xml.etree.ElementTree as ET
+ids = {'topleft', 'top', 'topright', 'left', 'center', 'right',
+       'bottomleft', 'bottom', 'bottomright'}
+for f in ['widgets/panel-background.svg', 'widgets/tooltip.svg', 'dialogs/background.svg']:
+    root = ET.parse('nexus-hub/plasma/desktoptheme/NexusMetro/' + f).getroot()
+    have = {e.get('id') for e in root.iter() if e.get('id')}
+    assert ids <= have, (f, ids - have)
+print('svg 9-slice ok')"
+chk "metro: plymouth keys + 48 frames" bash -c "
+  grep -q 'ModuleName=script' nexus-hub/plasma/boot-splash/plymouth/nexus-ignition/nexus-ignition.plymouth && \
+  test -s nexus-hub/plasma/boot-splash/plymouth/nexus-ignition/nexus-ignition.script && \
+  test \$(ls nexus-hub/plasma/boot-splash/plymouth/nexus-ignition/frames/f*.png | wc -l) -eq 48 && \
+  echo 'plymouth ok'"
+if [ -f docs/assets/boot-animation-preview.gif ]; then
+  chk "metro: preview gif > 200KB" bash -c "test \$(stat -c%s docs/assets/boot-animation-preview.gif) -gt 200000 && echo gif ok"
+else
+  skip "metro: preview gif" "docs/assets/boot-animation-preview.gif missing"
+fi
+if python3 -c "import PIL" 2>/dev/null; then
+  chk "metro: wallpapers sized + non-blank" python3 -c "
+from PIL import Image
+import os
+base = 'nexus-hub/plasma/wallpapers/NEXUSMetro/contents/images'
+for name, w, h in [('1920x1080.png', 1920, 1080), ('2560x1440.png', 2560, 1440),
+                   ('1920x1080-lock.png', 1920, 1080)]:
+    p = os.path.join(base, name)
+    im = Image.open(p)
+    assert im.size == (w, h), (name, im.size)
+    ex = im.convert('L').getextrema()
+    assert ex[1] - ex[0] > 8, ('blank image', name)
+print('wallpapers ok')"
+else
+  skip "metro: wallpapers sized + non-blank" "PIL absent (install python3-pil)"
+fi
+chk "metro: splash + sddm + konsole present" bash -c "
+  test -s nexus-hub/plasma/look-and-feel/com.nexusos.metro/contents/splash/Splashscreen.qml && \
+  test -s nexus-hub/plasma/sddm/nexus-metro/Main.qml && \
+  test -s nexus-hub/plasma/sddm/nexus-metro/background.png && \
+  test -s nexus-hub/plasma/konsole/NEXUSMetro.colorscheme && \
+  test -s nexus-hub/plasma/konsole/NexusMetro.profile && echo 'surfaces ok'"
+chk "metro: QML imports + brace balance" python3 -c "
+for p in ['nexus-hub/plasma/look-and-feel/com.nexusos.metro/contents/splash/Splashscreen.qml',
+          'nexus-hub/plasma/sddm/nexus-metro/Main.qml']:
+    s = open(p).read()
+    assert s.count('{') == s.count('}'), ('unbalanced braces', p)
+    assert 'import QtQuick' in s, p
+print('qml ok')"
+
 # ------------------------------------------------------------- L4 demo checks
 DEMO="nexus-hub/web-demo/index.html"
 if [ -f "$DEMO" ]; then

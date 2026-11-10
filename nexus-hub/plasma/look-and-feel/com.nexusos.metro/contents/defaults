@@ -1,0 +1,32 @@
+# NEXUS Metro look-and-feel defaults.
+# Format: <config-file>[<group>] sections applied on activation
+# (plasma-apply-lookandfeel -a com.nexusos.metro).
+
+[kdeglobals][General]
+ColorScheme=NEXUSMetro
+
+[kdeglobals][KDE]
+widgetStyle=breeze
+AnimationDurationFactor=0
+
+[kwinrc][Plugins]
+blurEnabled=true
+forceblurEnabled=false
+
+[kwinrc][Compositing]
+OpenGLIsUnsafe=false
+
+[klauncherrc][General]
+ForceAnimation=false
+
+[ksplashrc][KSplash]
+Theme=com.nexusos.metro
+Engine=KSplashQML
+
+[plasmashellrc][PlasmaViews][Panel 1][Defaults]
+location=4
+height=34
+
+[plasmashellrc][PlasmaViews][Panel 2][Defaults]
+location=3
+height=64

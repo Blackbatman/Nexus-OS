@@ -1,0 +1,12 @@
+{
+  "KPackageStructure": "Plasma/DesktopTheme",
+  "KPlugin": {
+    "Id": "NexusMetro",
+    "License": "MIT",
+    "Name": "NEXUS Metro",
+    "Description": "Mass Effect x Cyberpunk 2077 hybrid plasma theme - NEXUS-OS identity (docs/14). Inspired aesthetics only; no copyrighted assets.",
+    "Version": "0.2.0",
+    "Website": "https://github.com/Blackbatman/Nexus-OS"
+  },
+  "X-Plasma-APIVersion": "2"
+}

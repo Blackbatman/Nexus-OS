@@ -1,0 +1,10 @@
+[Plymouth Theme]
+Name=NEXUS Ignition
+Description=NEXUS-OS boot: seven dies ignite, the relay ring spins up, the wordmark lands. Mass Effect x Cyberpunk hybrid identity.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/nexus-ignition
+ScriptFile=/usr/share/plymouth/themes/nexus-ignition/nexus-ignition.script
+ScreenWidth=1920
+ScreenHeight=1080

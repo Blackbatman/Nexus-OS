@@ -1,0 +1,9 @@
+[SddmGreeterTheme]
+Name=NEXUS Metro
+Description=Mass Effect x Cyberpunk hybrid greeter for NEXUS-OS
+Author=Blackbatman
+License=MIT
+Type=sddm-theme
+Main=Main.qml
+ConfigFile=theme.conf
+Screenshot=preview.png

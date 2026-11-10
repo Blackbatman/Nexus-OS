@@ -1,6 +1,6 @@
 {
   "schema": "nexus.state-machines/1",
-  "updated": "2026-11-09",
+  "updated": "2026-11-11",
   "description": "Canonical registry of the state machines that were implicit in NEXUS-OS components and the PS5GreenApple app. Human narrative: docs/10-state-machines.md. Validator: tools/statecheck/statecheck.py (runs in beta-team harness). Source refs are repo paths; app-side machines cite the greapple-v2 spec and name the upstream file in 'upstream'.",
   "conventions": {
     "status_vocabulary": "PROVEN means upstream demonstrated on hardware; READY means engineering complete here; RESEARCH means no public proof; SIMULATED means dump-backend or dry-run evidence. No surface may claim a higher tier than its evidence.",
@@ -256,6 +256,28 @@
       "invariants": [
         "Missing required tools abort hard; optional tools (r2, jq, gcc) warn only.",
         "Network fetches happen only here, only into third_party/, and are approval-gated by policy."
+      ]
+    },
+    {
+      "id": "SM-12",
+      "name": "Handoff State Reset Contract",
+      "component": "kexec handoff boundary (F22: docs/13 curriculum gap closure)",
+      "initial": "COLD_ENTRY",
+      "states": ["COLD_ENTRY", "TARGET_SELECTED", "STATE_PROBED", "RESIDUE_DETECTED", "HANDOFF_CLEAN", "FAIL_LOUD"],
+      "terminals": ["HANDOFF_CLEAN", "FAIL_LOUD"],
+      "transitions": [
+        {"from": "COLD_ENTRY", "guard": "selector validates artifacts and dispatches (SM-01 DISPATCHED)", "to": "TARGET_SELECTED", "source": "bootchain/kexec/nexus-boot-select.sh"},
+        {"from": "TARGET_SELECTED", "guard": "probe-platform.sh reports all-clean (pci/framebuffer/interrupts/storage/network)", "to": "STATE_PROBED", "source": "tools/hwtest/probes/probe-platform.sh"},
+        {"from": "TARGET_SELECTED", "guard": "probe detects residue (missing fb mapping, APIC errors, no ESP, dead NIC)", "to": "RESIDUE_DETECTED", "source": "tools/hwtest/probes/probe-platform.sh"},
+        {"from": "RESIDUE_DETECTED", "guard": "delta-report PARTIAL logged; kexec prohibited until a re-probe is clean", "to": "STATE_PROBED", "source": "tools/hwtest/delta-report.py"},
+        {"from": "RESIDUE_DETECTED", "guard": "residue is structural: no clean slate possible on this boot", "to": "FAIL_LOUD", "source": "docs/12-hardware-validation.md"},
+        {"from": "STATE_PROBED", "guard": "chain exec: kexec -l then -e; target inherits no CPU/kernel state (clean slate)", "to": "HANDOFF_CLEAN", "source": "bootchain/kexec/chainload-linux.sh"},
+        {"from": "STATE_PROBED", "guard": "artifact missing | confirm refused (SM-08 guard fires)", "to": "FAIL_LOUD", "source": "bootchain/kexec/chainload-macos.sh"}
+      ],
+      "invariants": [
+        "Nothing crosses the kexec boundary except the kernel image, initramfs and cmdline: no GDT/IDT/page-table/APIC state is inherited.",
+        "Residue never boots through: it is probed, logged via delta-report, and either cleared or fails loudly.",
+        "Probes are read-only, run after artifacts are staged and before the exec."
       ]
     }
   ]

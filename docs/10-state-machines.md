@@ -43,10 +43,11 @@ behavior, and behavior changes here are deliberate acts, not side effects.
 | SM-09 | Hub Demo Boot Modal | `nexus-hub/web-demo/index.html` | simulation surface |
 | SM-10 | Feature Harness Session | `agents/feature_list.json` + `CLAUDE.md` | process |
 | SM-11 | Workspace Init | `agents/init.sh` | bootstrap |
+| SM-12 | Handoff State Reset Contract | `bootchain/kexec/` + `tools/hwtest/probes/` | handoff safety |
 
 The full machine-readable form (states, terminals, every transition with its
 guard and source, invariants, findings) lives in `agents/state-machines.json`
-— 11 machines, 70 transitions, checked by the harness. What follows is the
+— 12 machines, 77 transitions, checked by the harness. What follows is the
 human digest: each machine's shape and what was learned from it.
 
 ## SM-01 — Boot Intent Contract (the spine)
@@ -158,6 +159,22 @@ Fail-fast on missing required tools, warn-only on optional ones, network
 fetches only into `third_party/`, smoke = the quick harness. Simple — but it
 is the first machine every new contributor (human or agent) meets, so it is
 documented rather than assumed.
+
+## SM-12 — Handoff State Reset Contract
+
+Added by F22 (`docs/13`): the OS-dev curriculum's deepest lesson — an OS owns
+its GDT, IDT, page tables and APIC from reset — maps onto NEXUS as a
+boundary rule. kexec hands every target a **clean slate**; nothing crosses
+except kernel, initramfs, cmdline. Before the exec,
+`tools/hwtest/probes/probe-platform.sh` checks the five bring-up layers
+(PCI, framebuffer, interrupts, storage, network); residue is probed, logged
+via delta-report, and either cleared or fails loudly — never booted through.
+States: `COLD_ENTRY → TARGET_SELECTED → {STATE_PROBED ⇄ RESIDUE_DETECTED} →
+{HANDOFF_CLEAN, FAIL_LOUD}`.
+
+Learned: the reset guarantee was already true in the chain scripts but was
+implicit; the probes turn it from an assumption into per-session evidence
+archived next to the ktty capture.
 
 ## Findings register
 

@@ -1,0 +1,13 @@
+{
+  "KPackageStructure": "Plasma/LookAndFeel",
+  "KPlugin": {
+    "Id": "com.nexusos.metro",
+    "License": "MIT",
+    "Name": "NEXUS Metro",
+    "Description": "NEXUS-OS identity: Mass Effect x Cyberpunk 2077 hybrid design language. Deep-space glass, relay-cyan glow, cyber-yellow glitch ticks, seven-die ignition splash.",
+    "Version": "0.2.0",
+    "Website": "https://github.com/Blackbatman/Nexus-OS",
+    "Authors": [{"Name": "Blackbatman"}]
+  },
+  "X-Plasma-APIVersion": "2"
+}

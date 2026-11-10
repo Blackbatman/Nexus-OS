@@ -1,0 +1,93 @@
+# nexus-ignition.script — NEXUS-OS boot animation (Plymouth script plugin).
+#
+# Plays the 48-frame IGNITION sequence rendered by generate-frames.py
+# (seven dies ignite -> relay ring spins up -> glitch snap -> wordmark +
+# tagline + three OS nodes). Lights a thin progress bar from the boot
+# progress signal and fades the whole stage out on quit.
+#
+# Install (PS5 NEXUS Linux stage / any Plymouth system):
+#   sudo cp -r nexus-ignition /usr/share/plymouth/themes/
+#   sudo plymouth-set-default-theme -R nexus-ignition
+# Preview from a running session without rebooting:
+#   sudo plymouthd ; plymouth --show-splash ; sleep 4 ;
+#   plymouth quit ; sudo killall plymouthd
+
+# ---------------------------------------------------------------- palette
+Window.SetBackgroundTopColor(0.027, 0.043, 0.094);      // #070B18
+Window.SetBackgroundBottomColor(0.000, 0.012, 0.031);   // #000308
+
+# ---------------------------------------------------------------- state
+frame_count = 48;
+tick = 0;
+frame_now = 0;
+fade = 1.0;
+progress = 0.0;
+CYAN = 0.21; CYAN_G = 0.88; CYAN_B = 1.0;
+
+# ---------------------------------------------------------------- animation
+anim_size = Window.GetHeight() * 0.46;
+max_w = Window.GetWidth() * 0.5;
+if (anim_size > max_w) anim_size = max_w;
+cx = Window.GetWidth() / 2;
+cy = Window.GetHeight() * 0.44;
+
+for (i = 0; i < frame_count; i++) {
+    name = "frames/f" + i + ".png";
+    img = Image(name);
+    img = img.Scale(anim_size, anim_size);
+    spr[i] = Sprite(img);
+    spr[i].SetPosition(cx - anim_size / 2, cy - anim_size / 2, 2);
+    spr[i].SetOpacity(0);
+}
+
+# ---------------------------------------------------------------- progress
+bar_w = Window.GetWidth() * 0.20;
+bar_h = 6;
+bar_x = cx - bar_w / 2;
+bar_y = Window.GetHeight() * 0.78;
+
+track_img = Image("progress-off.png");
+track_spr = Sprite(track_img.Scale(bar_w, bar_h));
+track_spr.SetPosition(bar_x, bar_y, 1);
+track_spr.SetOpacity(0.9);
+
+fill_img = Image("progress-on.png");
+fill_spr = Sprite(fill_img.Scale(1, bar_h));
+fill_spr.SetPosition(bar_x, bar_y, 2);
+fill_spr.SetOpacity(0.9);
+
+# ---------------------------------------------------------------- hooks
+fun refresh_callback() {
+    if (fade > 0) {
+        // one animation step per refresh (~60Hz): hold each frame 2 ticks
+        old = frame_now;
+        frame_now = Math.Floor(tick / 2) % frame_count;
+        if (frame_now != old) {
+            spr[old].SetOpacity(0);
+            spr[frame_now].SetOpacity(fade);
+        }
+        tick = tick + 1;
+        if (tick % 30 == 0) fill_spr.SetImage(fill_img.Scale(bar_w * progress, bar_h));
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+fun progress_callback(duration, target) {
+    progress = target;
+    if (progress > 1) progress = 1;
+    if (progress < 0.02) progress = 0.02;
+    fill_spr.SetImage(fill_img.Scale(bar_w * progress, bar_h));
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+fun quit_callback() {
+    // fade the stage out over ~20 refreshes; Plymouth unloads us after
+    while (fade > 0) {
+        fade = fade - 0.05;
+        if (fade < 0) fade = 0;
+        spr[frame_now].SetOpacity(fade);
+        track_spr.SetOpacity(fade * 0.9);
+        fill_spr.SetOpacity(fade * 0.9);
+    }
+}
+Plymouth.SetQuitFunction(quit_callback);

@@ -175,6 +175,22 @@
    "passes": true,
    "evidence": "statecheck --selftest PASS (4 scenarios); REGISTRY PASS: 11 machines, 70 transitions, 0 violations; beta-team run-tests.sh full pass 47/47 after integration",
    "owner": "architect"
+  },
+  {
+   "id": "F22",
+   "name": "Curriculum gap closure (Write-your-own-OS analysis -> probes + SM-12)",
+   "description": "Analyzed the 'Write your own Operating System' 34-episode playlist (PLHh55M_Kq4OApWScZyPl5HhgsTJS9MZ6M) and wyoos.org (Kernel Development + Linux From Scratch / Linux Kernel / Compiler Construction / Kerberos / Network Design) against NEXUS-OS. Found the overlooked layers: PCI enumeration, framebuffer/GOP handoff, APIC/interrupts shape, storage+ESP visibility, NIC bring-up, and an implicit handoff reset contract. Closed them with docs/13-curriculum-gap-analysis.md, tools/hwtest/probes/probe-platform.sh (five read-only JSON probes, --dry-run/--selftest) and SM-12 Handoff State Reset Contract (registry now 12 machines / 77 transitions).",
+   "passes": true,
+   "evidence": "probe-platform.sh --selftest PASS (5 probes); statecheck REGISTRY PASS: 12 machines, 77 transitions, 0 violations; probe dry-run + live run verified",
+   "owner": "architect"
+  },
+  {
+   "id": "F23",
+   "name": "NEXUS Metro identity: IGNITION boot animation + full theme package",
+   "description": "The Mass Effect x Cyberpunk 2077 hybrid identity made concrete: unique 48-frame IGNITION boot animation (seven dies ignite -> relay ring spin-up -> RGB-split glitch snap -> wordmark + tagline + three OS orbit nodes) delivered as a Plymouth script theme with generator (nexus-hub/plasma/boot-splash/plymouth/nexus-ignition/), KSplash in look-and-feel com.nexusos.metro (defaults: colorscheme, blur, zero animations, panel sizes), glass desktoptheme (9-slice panel/tooltip/dialog SVGs + theme colors), SDDM greeter, three generated wallpapers, Konsole scheme, setup-nexus-plasma.sh --full/--undo, design spec docs/14-nexus-metro-identity.md. Inspired aesthetics only; no copyrighted game assets.",
+   "passes": true,
+   "evidence": "48/48 frames rendered (384px plymouth + 960px masters); previews: docs/assets/boot-animation-preview.gif (384px, 528KB) + release MP4/GIF; svg XML + metadata.json + QML brace-balance validated in harness; full suite green after integration",
+   "owner": "ux-designer"
   }
  ]
 }

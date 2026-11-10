@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """statecheck.py — NEXUS-OS explicit state-machine registry validator.
 
-NEXUS-OS discovered eleven implicit state machines scattered across its
+NEXUS-OS discovered twelve implicit state machines scattered across its
 components (boot intent contract, gate daemon, voice parser, chain guards,
-hub lifecycle, ...). docs/10-state-machines.md tells the human story;
-agents/state-machines.json is the machine-readable registry this tool
+hub lifecycle, handoff reset, ...). docs/10-state-machines.md tells the human
+story; agents/state-machines.json is the machine-readable registry this tool
 validates, so agents and CI share one source of truth (the AX contract).
 
 What it enforces per machine:

@@ -35,11 +35,12 @@ and everything that is not yet proven is labeled honestly instead of faked.
 | Linux multi-flavor boot (8 distros) | **Direct kexec path** — simplest real target | `bootchain/kexec/chainload-linux.sh` |
 | Windows 11 boot | **Research-grade** (UefiPayload → bootmgfw.efi, USB-only, no GPU accel) | `bootchain/kexec/chainload-windows.sh` |
 | NEXUS Hub v2 (real kexec wiring) | **Implemented (F17)** — real C patches, unit-tested + visually verified | `patches/PS5GreenApple/`, `docs/11-greapple-v2-impl.md` |
-| KDE Plasma "NEXUS Metro" theme | **Setup script + colorscheme** (top panel, centered dock, global menu, glass) | `nexus-hub/plasma/` |
+| KDE Plasma "NEXUS Metro" theme | **Full identity (F23)** — IGNITION boot animation, look-and-feel + KSplash, glass desktoptheme, SDDM, wallpapers, Konsole | `nexus-hub/plasma/`, `docs/14-nexus-metro-identity.md` |
 | Nested OS harness (macOS in terminal, Windows in terminal) | **Runnable harness** + permission gate | `nested-os/` |
 | Voice control (DIC — DualSense Integrated Command Interface) | **Module + local whisper.cpp design** | `tools/voice/` |
 | Packaging (.elf payload, Arch ISO, Windows media, USB/FTP/disc) | **Scripts + guides** | `packaging/` |
-| Explicit state machines (11 audited, registry + validator) | **Specified** — every implicit FSM named, guarded, and CI-checked | `docs/10-state-machines.md`, `agents/state-machines.json`, `tools/statecheck/` |
+| Explicit state machines (12 audited, registry + validator) | **Specified** — every implicit FSM named, guarded, and CI-checked | `docs/10-state-machines.md`, `agents/state-machines.json`, `tools/statecheck/` |
+| Platform bring-up probes (PCI/framebuffer/IRQ/storage/NIC) | **Implemented (F22)** — curriculum-derived read-only evidence for F18 sessions | `docs/13-curriculum-gap-analysis.md`, `tools/hwtest/probes/` |
 | WiFi/BT (NXP IW620), HDMI audio, GPU accel, clean power | **Not solved upstream — tracked honestly** | `docs/04-hardware-support.md` |
 
 ---

@@ -17,3 +17,6 @@ backstop_data/
 # Local scratch
 *.log
 .tmp/
+
+# ISO build output
+dist/

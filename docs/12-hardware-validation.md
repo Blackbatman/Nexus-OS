@@ -143,3 +143,12 @@ plus the storage/policy rows the chains actually differ on.
 - Logs are plain text; strip operator-identifying network names before
   sharing outside the team. Never commit exploit payloads or keys from the
   entry tooling into this repo (NOTICE §2 — logs describe, they do not ship).
+
+## 9. Approval ledger
+
+| Date | Approver | Scope | Record |
+| --- | --- | --- | --- |
+| 2026-11-11 | Blackbatman (repo owner) | **T1 + T2 approved** for operator runs ("I approve F18 hardware tracks"). Per-session proposal ritual (§1 rule 2) still applies to every run. **T3 unchanged: watch-only** — approval cannot create a 14.x entrypoint (docs/09 §RESEARCH WATCH, F20). | `tools/hwtest/APPROVAL.json` |
+
+A future T3 approval is only meaningful **after** a public 14.x chain exists
+and §1 is extended for it (F20 monthly re-review).

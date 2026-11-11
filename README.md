@@ -36,6 +36,8 @@ and everything that is not yet proven is labeled honestly instead of faked.
 | Windows 11 boot | **Research-grade** (UefiPayload → bootmgfw.efi, USB-only, no GPU accel) | `bootchain/kexec/chainload-windows.sh` |
 | NEXUS Hub v2 (real kexec wiring) | **Implemented (F17)** — real C patches, unit-tested + visually verified | `patches/PS5GreenApple/`, `docs/11-greapple-v2-impl.md` |
 | KDE Plasma "NEXUS Metro" theme | **Full identity (F23)** — IGNITION boot animation, look-and-feel + KSplash, glass desktoptheme, SDDM, wallpapers, Konsole | `nexus-hub/plasma/`, `docs/14-nexus-metro-identity.md` |
+| **QEMU bootable ISO** | **Working (F24)** — boots to IGNITION + NEXUS hub; unprivileged build, smoke-gated | `packaging/iso/`, `docs/16-iso-live-stage.md` |
+| Hardware validation (F18) | **Harness + T1/T2 operator runs APPROVED 2026-11-11** (T3 watch-only) | `docs/12-hardware-validation.md`, `tools/hwtest/APPROVAL.json` |
 | Nested OS harness (macOS in terminal, Windows in terminal) | **Runnable harness** + permission gate | `nested-os/` |
 | Voice control (DIC — DualSense Integrated Command Interface) | **Module + local whisper.cpp design** | `tools/voice/` |
 | Packaging (.elf payload, Arch ISO, Windows media, USB/FTP/disc) | **Scripts + guides** | `packaging/` |

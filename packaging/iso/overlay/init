@@ -1,0 +1,89 @@
+#!/bin/sh
+# /init — NEXUS-OS live stage first userspace (busybox sh).
+#
+# Boots the QEMU-verifiable NEXUS Linux stage: mounts the pseudo-filesystems,
+# remaps the console palette to NEXUS Metro (docs/14), plays the IGNITION
+# animation (framebuffer pack when /dev/fb0 exists, ASCII twin always echoed
+# to the serial console as evidence), starts the permission-gate daemon and
+# hands over to the NEXUS hub. All boot actions in this stage are DRY-RUN —
+# this ISO never writes to real disks (NOTICE.md §2 / docs/12 §1 discipline).
+#
+# Kernel cmdline switches:
+#   nexus=shell    skip hub, drop to a root shell
+#   nexus=noanim   skip the IGNITION animation
+#   nexus=verbose  full kernel log level
+
+PATH=/bin:/sbin:/usr/bin:/usr/local/bin:/opt/nexus
+export PATH TERM=linux HOME=/root ENV=/opt/nexus/lib/nxshrc
+
+mount -t proc proc /proc
+[ -d /dev ] || mkdir -p /dev
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /dev/pts /run /tmp
+mount -t devpts devpts /dev/pts 2>/dev/null
+mount -t tmpfs tmpfs /tmp 2>/dev/null
+
+busybox --install -s /bin 2>/dev/null || true
+
+SER=/dev/ttyS0
+ser() { printf '%s\n' "$*" >> "$SER" 2>/dev/null || :; }
+
+dmesg -n 3 2>/dev/null || true
+case "$(cat /proc/cmdline 2>/dev/null)" in
+  *nexus=verbose*) dmesg -n 7 2>/dev/null ;;
+esac
+
+ser "[nexus-iso] stage up: kernel $(uname -r), $(nproc) cpu, fb:$( [ -c /dev/fb0 ] && echo yes || echo no)"
+
+# NEXUS Metro palette on the console (no-op on serial)
+. /opt/nexus/lib/metro.sh 2>/dev/null && nx_init_palette
+
+MODE=hub
+case "$(cat /proc/cmdline 2>/dev/null)" in
+  *nexus=shell*)  MODE=shell ;;
+  *nexus=noanim*) MODE=noanim ;;
+esac
+
+# ── IGNITION ────────────────────────────────────────────────────────────────
+if [ "$MODE" != "noanim" ] && [ "$MODE" != "shell" ]; then
+  if [ -c /dev/fb0 ] && [ -x /usr/local/bin/nexfblit ] && [ -f /opt/nexus/anim/ignition.frb ]; then
+    ser "[nexus-iso] IGNITION: framebuffer pack (48 frames, docs/14)"
+    /usr/local/bin/nexfblit /opt/nexus/anim/ignition.frb --fps 10 --loop 1 >/dev/null 2>&1 &
+    ANIM=$!
+    /opt/nexus/ascii-ignition.sh --dev "$SER" 2>/dev/null   # serial twin, log evidence
+    wait "$ANIM" 2>/dev/null
+    ser "[nexus-iso] IGNITION complete"
+  else
+    ser "[nexus-iso] IGNITION: ascii console twin (no framebuffer)"
+    /opt/nexus/ascii-ignition.sh > /dev/console 2>&1
+    /opt/nexus/ascii-ignition.sh --dev "$SER" 2>/dev/null
+    ser "[nexus-iso] IGNITION complete (ascii)"
+  fi
+fi
+
+# ── permission-gate daemon (default-deny isolation, SM-06) ──────────────────
+GATE=/opt/nexus/repo/nested-os/permission-gate
+if command -v python3 >/dev/null 2>&1 && [ -f "$GATE/gate-daemon.py" ]; then
+  (
+    cd "$GATE" &&
+    python3 gate-daemon.py --policy "$GATE/policy.json" > /tmp/nexus-gate.log 2>&1
+  ) &
+  sleep 0.3
+  touch /tmp/nexus-gate.up 2>/dev/null
+  ser "[nexus-iso] permission-gate daemon: up (127.0.0.1:7421, default deny)"
+fi
+
+# ── handover ────────────────────────────────────────────────────────────────
+if [ "$MODE" = "shell" ]; then
+  ser "[nexus-iso] nexus=shell — rescue shell (exit to power off)"
+  setsid sh -c 'exec sh </dev/console >/dev/console 2>&1' </dev/console >/dev/console 2>&1
+else
+  ser "[nexus-iso] hub ready — handing console to the NEXUS hub"
+  exec /bin/bash /opt/nexus/hub.sh < /dev/console > /dev/console 2>&1
+fi
+
+# shell exit (or hub exit) → power the machine off so QEMU terminates
+ser "[nexus-iso] stage exit — powering off"
+sync
+poweroff -f 2>/dev/null || sleep 1
+exec sleep infinity

@@ -1,0 +1,33 @@
+{
+  "schema": "nexus.hwtest.approval/1",
+  "feature": "F18",
+  "approved_by": "Blackbatman (repo owner, Blackbatman/Nexus-OS)",
+  "approved_at": "2026-11-11",
+  "medium": "owner authorization in the project session: 'I approve F18 hardware tracks'",
+  "scope": "operator execution of the docs/12 runbook on real consoles; the harness (capture/validate/delta) was already delivered 2026-11-09",
+  "tracks": {
+    "T1": {
+      "name": "baseline (FW 13.42, Relapse entry)",
+      "status": "approved",
+      "attempts": "M x1, L x3 flavors (one Arch-family, one Debian-family, one rpm/os-style), W x1 — docs/12 section 3",
+      "next": "operator posts the per-session proposal (console, FW, chain, date) per docs/12 section 1 rule 2, then runs the capture-ktty.sh ritual"
+    },
+    "T2": {
+      "name": "ceiling (FW 13.60, Byepervisor-Reborn)",
+      "status": "approved",
+      "attempts": "M x1, L x2 flavors, W x1, plus one Byepervisor-Reborn load/unload HV observation cycle — docs/12 section 3",
+      "next": "same proposal ritual as T1; clean-FW-return experiments stay RESEARCH (docs/09)"
+    },
+    "T3": {
+      "name": "watch (FW 14.00/14.10)",
+      "status": "watch-only",
+      "runs": "NO RUNS — unchanged by this approval: no public entry exists for 14.x (docs/09 RESEARCH WATCH, F20). Approval cannot create an entrypoint; docs/12 is extended first if a public chain ships"
+    }
+  },
+  "rules": [
+    "no exploit code is shipped or flashed by NEXUS-OS (docs/12 section 1 rule 1, NOTICE.md section 2)",
+    "every session still needs its own logged proposal before power-on (docs/12 section 1 rule 2)",
+    "chain M intentionally crashes the running Linux session; operator expects a manual power-cycle and keeps the boot USB plugged (docs/12 section 1 rule 3)",
+    "no verdict is self-executing: beta QA moves the docs/04 matrix row (docs/12 section 6)"
+  ]
+}

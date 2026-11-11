@@ -29,5 +29,12 @@ case "${1:-}" in
     command -v mkarchiso >/dev/null 2>&1 || die "mkarchiso not found — build the ISO on an Arch host with archiso installed"
     bash "$HERE/linux-iso/build-iso.sh"
     ;;
-  *) die "usage: build.sh ps5|syntax|iso" ;;
+  iso-qemu)
+    # F24 QEMU live stage — unprivileged build, QEMU-verified (docs/16)
+    bash "$HERE/iso/build-iso.sh" --smoke
+    ;;
+  iso-deps)
+    bash "$HERE/iso/fetch-deps.sh" "$@"
+    ;;
+  *) die "usage: build.sh ps5|syntax|iso|iso-qemu|iso-deps [--qemu]" ;;
 esac

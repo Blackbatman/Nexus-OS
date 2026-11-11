@@ -1,0 +1,52 @@
+# iso.yml — F24 QEMU live-stage ISO (docs/16).
+# Opt-in: workflow_dispatch, or attached automatically to published releases.
+# The main release pipeline (release.yml) is untouched; this workflow builds
+# the QEMU-bootable live stage, smoke-boots it headless, and uploads it.
+name: iso-live-stage
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain (apt paths are probed by build-iso.sh automatically)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            busybox-static bash-static isolinux syslinux-common \
+            gcc python3-pil qemu-system-x86 seabios
+
+      - name: Harness (must stay green before packaging)
+        run: |
+          sudo apt-get install -y -q ripgrep
+          bash beta-team/run-tests.sh
+
+      - name: Build + smoke boot the ISO
+        run: bash packaging/iso/build-iso.sh --smoke
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-live-stage-iso
+          path: |
+            dist/NEXUS-OS-*-live-stage-amd64.iso
+            dist/nexus-iso-smoke.log
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/NEXUS-OS-*-live-stage-amd64.iso --clobber -R "$GITHUB_REPOSITORY"

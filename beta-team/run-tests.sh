@@ -236,6 +236,64 @@ chk "hwtest: runbook present (tracks, checkpoints, verdicts)" bash -c "
   grep -q 'capture-ktty.sh' docs/12-hardware-validation.md && \
   grep -q 'PARTIAL' docs/12-hardware-validation.md && echo runbook ok"
 
+# ------------------------------------------- F18 approval ledger (2026-11-11)
+chk "hwtest: APPROVAL.json valid + T1/T2 approved, T3 watch-only" python3 -c "
+import json
+a = json.load(open('tools/hwtest/APPROVAL.json'))
+assert a['schema'] == 'nexus.hwtest.approval/1', a['schema']
+assert a['approved_by'].startswith('Blackbatman'), a['approved_by']
+assert a['tracks']['T1']['status'] == 'approved', a['tracks']['T1']
+assert a['tracks']['T2']['status'] == 'approved', a['tracks']['T2']
+assert a['tracks']['T3']['status'] == 'watch-only', a['tracks']['T3']
+assert 'NO RUNS' in a['tracks']['T3']['runs']
+print('approval ledger ok')"
+chk "hwtest: docs/12 approval ledger row present" grep -q '2026-11-11.*T1 + T2 approved' docs/12-hardware-validation.md
+chk "hwtest: F18 evidence carries the approval" python3 -c "
+import json
+fl = json.load(open('agents/feature_list.json'))
+f18 = [f for f in fl['features'] if f['id'] == 'F18'][0]
+assert 'OWNER APPROVAL GRANTED 2026-11-11' in f18['evidence'], f18['evidence']
+print('F18 evidence ok')"
+
+# --------------------------------------------- F24 QEMU live-stage ISO (docs/16)
+chk "iso: build system complete" bash -c "
+  for f in packaging/iso/build-iso.sh packaging/iso/fetch-deps.sh packaging/iso/mkcpio.py \
+           packaging/iso/pack-frames.py packaging/iso/mkiso.py packaging/iso/src/nexfblit.c \
+           packaging/iso/isolinux.cfg packaging/iso/overlay/init \
+           packaging/iso/overlay/opt/nexus/hub.sh packaging/iso/overlay/opt/nexus/lib/metro.sh \
+           packaging/iso/overlay/opt/nexus/ascii-ignition.sh docs/16-iso-live-stage.md; do
+    [ -s \"\$f\" ] || { echo \"missing \$f\"; exit 1; }
+  done && echo 'iso build system ok'"
+chk "iso: cpio writer selftest" python3 packaging/iso/mkcpio.py --selftest
+chk "iso: frame packer selftest" python3 packaging/iso/pack-frames.py --selftest
+chk "iso: overlay scripts parse" bash -c "
+  bash -n packaging/iso/overlay/init && \
+  bash -n packaging/iso/overlay/opt/nexus/hub.sh && \
+  bash -n packaging/iso/overlay/opt/nexus/ascii-ignition.sh && \
+  bash -n packaging/iso/overlay/opt/nexus/lib/metro.sh && echo 'overlay ok'"
+chk "iso: nexfblit host syntax" gcc -fsyntax-only -Wall packaging/iso/src/nexfblit.c
+chk "iso: boot config sanity" bash -c "
+  grep -q 'KERNEL /isolinux/BOOT.VMZ' packaging/iso/isolinux.cfg && \
+  grep -q 'console=ttyS0' packaging/iso/isolinux.cfg && \
+  grep -q 'console=tty0' packaging/iso/isolinux.cfg && \
+  grep -q 'IGNITION' packaging/iso/nexus.msg && echo 'boot config ok'"
+chk "iso: hub is dry-run safe (no raw chain invocations)" bash -c "
+  ! grep -nE 'chainload-(macos|linux|windows)\.sh' packaging/iso/overlay/opt/nexus/hub.sh | grep -v 'dry-run' >/dev/null; \
+  grep -q 'dry-run' packaging/iso/overlay/opt/nexus/hub.sh && echo 'dry-run guards ok'"
+if [ -f dist/NEXUS-OS-*-live-stage-amd64.iso ]; then
+  ISO_F="$(ls dist/NEXUS-OS-*-live-stage-amd64.iso | head -1)"
+  chk "iso: artifact bootable (CD001 + El Torito + >8MB)" bash -c "
+    test \$(stat -c%s '$ISO_F') -gt 8388608 && \
+    dd if='$ISO_F' bs=1 skip=32769 count=5 status=none | grep -q 'CD001' && \
+    dd if='$ISO_F' bs=2048 skip=17 count=1 status=none | od -An -tx1 | head -1 | grep -qE '00 43 44 30 30 31' && echo 'iso artifact ok'"
+  chk "iso: serial smoke log has full boot chain" bash -c "
+    grep -q 'IGNITION complete' dist/nexus-iso-smoke.log 2>/dev/null && \
+    grep -q 'permission-gate daemon: up' dist/nexus-iso-smoke.log && \
+    grep -q 'hub ready' dist/nexus-iso-smoke.log && echo 'smoke log ok'"
+else
+  skip "iso: artifact checks (boot magic + smoke log)" "no ISO in dist/ — run packaging/build.sh iso-qemu"
+fi
+
 # ---------------------------------------------------------------- summary
 printf '%s\n' "${ROWS[@]}"
 echo "────────────────────────────────────────────"

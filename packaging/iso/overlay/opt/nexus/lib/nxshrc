@@ -1,0 +1,6 @@
+# nxshrc — ENV for shells spawned by the NEXUS live stage hub
+PS1='\[\033[96m\]nexus\[\033[90m\]@\[\033[93m\]live-stage\[\033[90m\]:\[\033[37m\]\w\[\033[90m\]$ \[\033[0m\]'
+alias ll='ls -l'
+alias release='cat /etc/nexus-release'
+alias probes='bash /opt/nexus/repo/tools/hwtest/probes/probe-platform.sh all'
+alias statecheck='python3 /opt/nexus/repo/tools/statecheck/statecheck.py /opt/nexus/repo/agents/state-machines.json --repo-root /opt/nexus/repo'

@@ -194,7 +194,7 @@ if [ "$SMOKE" = "1" ]; then
   LOG="$OUT/nexus-iso-smoke.log"
   rm -f "$LOG"
   say "smoke    : booting headless (TCG, up to 300 s)…"
-  "$QEMU_BIN" -m 1024 -cdrom "$ISO" -boot d -display none -no-reboot \
+  "$QEMU_BIN" -m 1024 -cpu max -cdrom "$ISO" -boot d -display none -no-reboot \
     -serial "file:$LOG" >/dev/null 2>&1 &
   QPID=$!
   OK=0

@@ -34,7 +34,8 @@ case "${1:-}" in
     bash "$HERE/iso/build-iso.sh" --smoke
     ;;
   iso-deps)
-    bash "$HERE/iso/fetch-deps.sh" "$@"
+    # forward everything after the subcommand ("$@" leaked "iso-deps" itself)
+    bash "$HERE/iso/fetch-deps.sh" "${@:2}"
     ;;
   *) die "usage: build.sh ps5|syntax|iso|iso-qemu|iso-deps [--qemu]" ;;
 esac

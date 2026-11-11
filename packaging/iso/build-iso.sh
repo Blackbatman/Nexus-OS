@@ -100,11 +100,13 @@ PYVER="$("$PYBASE" -c 'import sys; print(f"{sys.version_info.major}.{sys.version
 mkdir -p "$STAGE/usr/bin" "$STAGE/usr/lib"
 cp "$PYBASE" "$STAGE/usr/bin/python3.$PYVER"
 ln -s "python3.$PYVER" "$STAGE/usr/bin/python3"
-if [ -d "/usr/lib/python$PYVER" ]; then
-  python3 - "$PYVER" "$STAGE" <<'PY'
+# stdlib discovery via the embedded interpreter itself (sysconfig) — resolves
+# /usr/lib/pythonX.Y on distro pythons and uv/virtualenv layouts elsewhere
+PYSTDLIB="$($PYBASE -c 'import sysconfig; print(sysconfig.get_paths()["stdlib"])' 2>/dev/null || true)"
+if [ -n "$PYSTDLIB" ] && [ -d "$PYSTDLIB" ]; then
+  python3 - "$PYVER" "$STAGE" "$PYSTDLIB" <<'PY'
 import shutil, sys
-ver, stage = sys.argv[1], sys.argv[2]
-src = f"/usr/lib/python{ver}"
+ver, stage, src = sys.argv[1], sys.argv[2], sys.argv[3]
 dst = f"{stage}/usr/lib/python{ver}"
 ignore = shutil.ignore_patterns(
     "__pycache__", "test*", "idlelib", "tkinter", "turtledemo", "turtle.py",
@@ -114,7 +116,7 @@ shutil.copytree(src, dst, ignore=ignore)
 print(f"[nexus-iso] stdlib: {src} -> {dst}")
 PY
 else
-  say "WARN: no stdlib at /usr/lib/python$PYVER — hub features degrade to ASCII"
+  say "WARN: no stdlib for python$PYVER (probed: ${PYSTDLIB:-unset}) — hub features degrade to ASCII"
 fi
 # dynamic loader + library closure of the interpreter (keeps exact paths)
 mkdir -p "$STAGE/lib64" "$STAGE/usr/lib/x86_64-linux-gnu" "$STAGE/lib/x86_64-linux-gnu"

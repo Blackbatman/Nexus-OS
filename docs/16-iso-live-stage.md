@@ -105,3 +105,25 @@ needs a distro base (archiso profile: `packaging/linux-iso/`, buildable on
 an Arch host). The stage delivers the boot experience, the hub, and the
 identity layer; SDDM/KSplash/Plymouth packages from `nexus-hub/plasma/`
 apply to installed systems.
+
+## Reproducibility record (2026-11-12)
+
+Two independent environments have produced a passing `--smoke` boot:
+
+| Environment | Host python | Embedded | QEMU | Result |
+| --- | --- | --- | --- | --- |
+| GitHub Actions `ubuntu-latest` (run 42955909181) | 3.12 distro | 3.12 | 10.x apt | PASS |
+| Debian 13 (trixie), non-root, uv/venv host | 3.12 (uv venv) | 3.13 distro | 10.0.13 private closure | PASS |
+
+The Debian build exercised two portability fixes, both behavior-preserving
+on the CI path:
+
+1. `packaging/build.sh` `iso-deps` forwarded `"$@"` verbatim, leaking the
+   subcommand itself into `fetch-deps.sh` (`unknown arg: iso-deps`). CI never
+   hit it because the workflow calls `fetch-deps.sh` directly; now fixed to
+   forward `"${@:2}"`.
+2. `build-iso.sh` hardcoded `/usr/lib/python$VER` for the embedded stdlib.
+   Probing moved to `sysconfig.get_paths()["stdlib"]` of the interpreter that
+   is actually embedded, so distro, uv and venv layouts all resolve; the
+   harness went 91/0/2 → **93/0/1** locally (both `iso:` artifact checks now
+   run on `dist/`).

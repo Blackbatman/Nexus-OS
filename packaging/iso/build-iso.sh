@@ -41,11 +41,13 @@ die() { printf '\033[nexus-iso] FAIL\033 %s\n' "$*" >&2; exit 1; }
 DEPS="$BUILD/deps"
 
 # ── 1 · toolchain resolution (env → system → fetch-deps prefix) ─────────────
-find_first() { for p in "$@"; do [ -e "$p" ] && { printf '%s' "$p"; return 0; }; done; return 1; }
+find_first() { for p in "$@"; do [ -n "$p" ] && [ -r "$p" ] && { printf '%s' "$p"; return 0; }; done; return 1; }
 
 KERNEL_IMG="${NEXUS_ISO_KERNEL:-$(find_first $(ls -1 /boot/vmlinuz-* 2>/dev/null | sort -V | tail -1) \
   "$DEPS"/kernel/x/boot/vmlinuz-* 2>/dev/null || true)}"
-[ -n "$KERNEL_IMG" ] && [ -e "$KERNEL_IMG" ] || die "no kernel image (set NEXUS_ISO_KERNEL or run fetch-deps.sh)"
+# CI runners ship an unreadable root-owned /boot kernel — skip to fetch-deps
+[ -n "$KERNEL_IMG" ] && [ -r "$KERNEL_IMG" ] || KERNEL_IMG="$(find_first "$DEPS"/kernel/x/boot/vmlinuz-* 2>/dev/null || true)"
+[ -n "$KERNEL_IMG" ] && [ -r "$KERNEL_IMG" ] || die "no readable kernel image (set NEXUS_ISO_KERNEL or run fetch-deps.sh)"
 
 BUSYBOX_BIN="${NEXUS_ISO_BUSYBOX:-$(find_first /usr/bin/busybox "$DEPS/busybox-static/x/usr/bin/busybox" || true)}"
 [ -n "$BUSYBOX_BIN" ] || die "no busybox (run fetch-deps.sh)"

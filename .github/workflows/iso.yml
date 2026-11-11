@@ -31,6 +31,9 @@ jobs:
           sudo apt-get install -y -q ripgrep
           bash beta-team/run-tests.sh
 
+      - name: Live-stage dependencies (unprivileged kernel download — runner /boot is root-only)
+        run: bash packaging/iso/fetch-deps.sh
+
       - name: Build + smoke boot the ISO
         run: bash packaging/iso/build-iso.sh --smoke
 

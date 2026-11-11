@@ -45,9 +45,13 @@ dl() { # dl <package…> — download (no root) and dpkg -x into OUT/<first-pkg>
 say() { printf '[fetch-deps] %s\n' "$*"; }
 
 # ── kernel: newest vmlinuz from the versioned linux-image package ───────────
+meta_dep() { # first real package name from a meta package's Depends field
+  apt-cache show "$1" 2>/dev/null | awk '/^Depends:/{print; exit}' \
+    | sed 's/^Depends: *//; s/,.*//; s/([^)]*)//g' | awk '{print $1}'
+}
 if [ ! -d "$OUT/kernel/x/boot" ]; then
-  META_DEP="$(apt-cache show linux-image-amd64 2>/dev/null | awk '/^Depends:/{print $2; exit}')"
-  [ -n "$META_DEP" ] || META_DEP="$(apt-cache show linux-image-generic 2>/dev/null | awk '/^Depends:/{print $2; exit}')"
+  META_DEP="$(meta_dep linux-image-amd64)"
+  [ -n "$META_DEP" ] || META_DEP="$(meta_dep linux-image-generic)"
   [ -n "$META_DEP" ] || { say "no linux-image meta package found"; exit 1; }
   say "kernel meta dependency: $META_DEP"
   rm -rf "$OUT/kernel"

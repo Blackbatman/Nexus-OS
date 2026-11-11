@@ -24,7 +24,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends \
             busybox-static bash-static isolinux syslinux-common \
-            gcc python3-pil qemu-system-x86 seabios
+            gcc python3-pil python3-pip qemu-system-x86 seabios
+          python3 -m pip install --quiet --break-system-packages pycdlib
 
       - name: Harness (must stay green before packaging)
         run: |

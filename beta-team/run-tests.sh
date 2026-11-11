@@ -280,8 +280,7 @@ chk "iso: boot config sanity" bash -c "
 chk "iso: hub is dry-run safe (no raw chain invocations)" bash -c "
   ! grep -nE 'chainload-(macos|linux|windows)\.sh' packaging/iso/overlay/opt/nexus/hub.sh | grep -v 'dry-run' >/dev/null; \
   grep -q 'dry-run' packaging/iso/overlay/opt/nexus/hub.sh && echo 'dry-run guards ok'"
-if [ -f dist/NEXUS-OS-*-live-stage-amd64.iso ]; then
-  ISO_F="$(ls dist/NEXUS-OS-*-live-stage-amd64.iso | head -1)"
+if ISO_F="$(ls dist/NEXUS-OS-*-live-stage-amd64.iso 2>/dev/null | head -1)" && [ -n "$ISO_F" ]; then
   chk "iso: artifact bootable (CD001 + El Torito + >8MB)" bash -c "
     test \$(stat -c%s '$ISO_F') -gt 8388608 && \
     dd if='$ISO_F' bs=1 skip=32769 count=5 status=none | grep -q 'CD001' && \
